@@ -348,6 +348,8 @@ function Lab() {
         threads, voice: chosenVoice, steps, speed,
         items: TEST_SET.map(({ id, text }) => ({ id, text })),
       });
+      // Never keep a second ONNX engine loaded while the background worker allocates its sessions.
+      if (loaded) await release();
       await OnnxTts.startBenchmark(options);
       setAutoStatus('running');
       note('Запущен фоновый тест: быстрый → экономный');
@@ -423,7 +425,7 @@ function Lab() {
   };
 
   const voices = pack ? voicesOf(pack) : [];
-  const disabled = busy !== null;
+  const disabled = busy !== null || autoStatus === 'running';
 
   return (
     <ScrollView contentContainerStyle={s.content}>
