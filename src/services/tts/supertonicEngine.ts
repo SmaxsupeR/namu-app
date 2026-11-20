@@ -2,6 +2,7 @@
 // itself, falls back to a lighter mode when memory runs short, and steps aside
 // (so the system voice speaks) when the phone cannot run it.
 import { isMemoryError, modesFor, threadsFor, type DeviceFacts, type MemoryMode } from './mode';
+import type { AudioCache, CacheContext } from './audioCache';
 import type { PackState } from './packManager';
 import type { TtsEngine } from './types';
 import { DEFAULT_VOICE } from './voices';
@@ -42,8 +43,14 @@ export interface SupertonicEngine extends TtsEngine {
   released(): void;
   /** Voice actually used: the chosen one if the pack has it, otherwise the first voice. */
   voiceFor(state: PackState): string | null;
-  /** Synthesizes into a file (used by the cache and the queue in later stages). */
+  /** Synthesizes into a file (used by the cache). */
   synthToFile(text: string, out: string): Promise<{ audioSec: number; totalMs: number }>;
+  /** Connects the audio cache; from then on audio is played from and saved to it. */
+  attachCache(cache: AudioCache): void;
+  /** Cache context of the active pack and voice, or null without a usable pack. */
+  context(): Promise<CacheContext | null>;
+  /** Makes sure this text is in the cache (synthesizing if needed); returns the file. */
+  ensureAudio(text: string): Promise<string>;
 }
 
 export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
@@ -53,6 +60,23 @@ export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
   let loading: Promise<{ dir: string; mode: MemoryMode } | null> | null = null;
   let failedAt = -Infinity;
   let counter = 0;
+  let cache: AudioCache | null = null;
+  // Background preparation runs one text at a time; later stages replace this with the queue.
+  let prefetching: Promise<unknown> = Promise.resolve();
+  const pending = new Set<string>();
+
+  async function context(): Promise<CacheContext | null> {
+    const s = await deps.packState();
+    const voice = voiceFor(s);
+    return s.status === 'ready' && voice ? { pack: `${s.pack.id}@${s.pack.version}`, voice } : null;
+  }
+
+  async function ensureAudio(text: string): Promise<string> {
+    const ctx = await context();
+    if (!ctx || !cache) throw new Error('E_UNAVAILABLE');
+    const key = await cache.keyFor(text, ctx);
+    return (await cache.lookup(key)) ?? (await cache.create(text, ctx, key));
+  }
 
   const voiceFor = (s: PackState): string | null => {
     if (s.status !== 'ready') return null;
@@ -109,6 +133,12 @@ export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
       }
     },
     async play({ text, isCurrent }) {
+      if (cache) {
+        const file = await ensureAudio(text);
+        if (!isCurrent()) return;
+        await deps.native.playFile(file);
+        return;
+      }
       const ready = await ensureLoaded();
       if (!ready) throw new Error('E_UNAVAILABLE');
       if (!isCurrent()) return;
@@ -134,6 +164,24 @@ export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
       loaded = null;
     },
     voiceFor,
+    attachCache(c) {
+      cache = c;
+    },
+    context,
+    ensureAudio,
+    async hasAudio(text) {
+      if (!cache) return false;
+      const ctx = await context();
+      return ctx !== null && (await cache.has(await cache.keyFor(text, ctx)));
+    },
+    prefetch(text) {
+      if (!cache || pending.has(text)) return;
+      pending.add(text);
+      prefetching = prefetching
+        .then(() => ensureAudio(text))
+        .catch((e) => log('tts.prefetch_failed', { length: text.length, error: e instanceof Error ? e.message : String(e) }))
+        .finally(() => pending.delete(text));
+    },
     async synthToFile(text, out) {
       const ready = await ensureLoaded();
       if (!ready) throw new Error('E_UNAVAILABLE');

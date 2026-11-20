@@ -28,6 +28,14 @@ export interface TtsEngine {
   play(req: SpeakRequest): Promise<void>;
   /** Stops any playback of this engine. Must be safe to call when idle. */
   stop(): Promise<void>;
+  /**
+   * Engines that make audio slowly answer here whether this text can play at
+   * once (from their cache). Without ready audio the next engine speaks, and
+   * the slow engine is only used when no other voice is available.
+   */
+  hasAudio?(text: string): Promise<boolean>;
+  /** Asks a slow engine to prepare this text in the background for next time. */
+  prefetch?(text: string): void;
 }
 
 export type SpeakOutcome =

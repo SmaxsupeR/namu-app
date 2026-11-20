@@ -37,33 +37,63 @@ export function createSpeechService(opts: SpeechServiceOptions): SpeechService {
       await stopAll();
       if (text === '') return { ok: false, reason: 'empty' };
       const engines = opts.engines();
+      const order = engineOrder(opts.preference())
+        .map((id) => engines.find((e) => e.id === id))
+        .filter((e): e is TtsEngine => !!e);
       let failed = false;
-      for (const id of engineOrder(opts.preference())) {
-        const engine = engines.find((e) => e.id === id);
-        if (!engine) continue;
-        if (token !== generation) return { ok: false, reason: 'superseded' };
-        let ready = false;
+      const ready = async (e: TtsEngine) => {
         try {
-          ready = await engine.isReady();
+          return await e.isReady();
         } catch {
-          ready = false;
+          return false;
         }
-        if (!ready) continue;
-        if (token !== generation) return { ok: false, reason: 'superseded' };
+      };
+      const instant = async (e: TtsEngine) => {
+        if (!e.hasAudio) return true;
+        try {
+          return await e.hasAudio(text);
+        } catch {
+          return false;
+        }
+      };
+      /** Plays with one engine; null means "try the next one". */
+      const attempt = async (engine: TtsEngine): Promise<SpeakOutcome | null> => {
         try {
           await engine.play({ text, rate, isCurrent: () => token === generation });
         } catch (e) {
           failed = true;
-          log('tts.play_failed', { engine: id, length: text.length, error: e instanceof Error ? e.message : String(e) });
+          log('tts.play_failed', { engine: engine.id, length: text.length, error: e instanceof Error ? e.message : String(e) });
           await engine.stop().catch(() => {});
-          continue;
+          return null;
         }
         if (token !== generation) {
           // A newer call arrived while this one was starting: silence it.
           await engine.stop().catch(() => {});
           return { ok: false, reason: 'superseded' };
         }
-        return { ok: true, engine: id };
+        return { ok: true, engine: engine.id };
+      };
+
+      // First pass: only voices that can start right away. A slow engine without
+      // ready audio prepares it in the background and lets the next voice speak.
+      const slow: TtsEngine[] = [];
+      for (const engine of order) {
+        if (token !== generation) return { ok: false, reason: 'superseded' };
+        if (!(await ready(engine))) continue;
+        if (!(await instant(engine))) {
+          slow.push(engine);
+          engine.prefetch?.(text);
+          continue;
+        }
+        if (token !== generation) return { ok: false, reason: 'superseded' };
+        const r = await attempt(engine);
+        if (r) return r;
+      }
+      // Second pass: no other voice could speak, so wait for the slow one.
+      for (const engine of slow) {
+        if (token !== generation) return { ok: false, reason: 'superseded' };
+        const r = await attempt(engine);
+        if (r) return r;
       }
       return { ok: false, reason: failed ? 'failed' : 'no_voice' };
     },

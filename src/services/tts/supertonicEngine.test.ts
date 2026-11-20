@@ -111,3 +111,40 @@ describe('neural engine', () => {
     expect(calls.filter((c) => c.startsWith('load'))).toHaveLength(2);
   });
 });
+
+describe('neural engine with the audio cache', () => {
+  it('plays from the cache, synthesizing only on the first request', async () => {
+    const { createAudioCache } = await import('./audioCache');
+    const { migrate } = await import('../../db/schema');
+    const { openTestDb } = await import('../../db/testing');
+    const { createHash } = await import('node:crypto');
+    const db = openTestDb();
+    await migrate(db);
+    const { n, calls } = native();
+    const files = new Map<string, number>();
+    n.synthToFile = async (text, voice, _s, _sp, _seed, out) => {
+      calls.push(`synth:${voice}:${text}`);
+      files.set(out, 5000);
+      return { audioSec: 1, totalMs: 1 };
+    };
+    const e = createSupertonicEngine({ native: n, packState: async () => ready(), voice: () => 'F2', tmpDir: '/t' });
+    const cache = createAudioCache({
+      db: async () => db,
+      io: { fileSize: async (f) => files.get(f) ?? -1, deleteTree: async (f) => void files.delete(f), listDir: async () => [] },
+      dir: '/c',
+      sha256: async (s) => createHash('sha256').update(s).digest('hex'),
+      synth: (text, out) => e.synthToFile(text, out),
+    });
+    e.attachCache(cache);
+    expect(await e.hasAudio!('3개')).toBe(false);
+    await e.play(req());
+    await e.play(req());
+    expect(calls.filter((c) => c.startsWith('synth'))).toEqual(['synth:F2:학교']);
+    expect(calls.filter((c) => c.startsWith('play'))).toHaveLength(2);
+    expect(await e.hasAudio!('학교')).toBe(true);
+    e.prefetch!('2개');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toContain('synth:F2:두 개');
+    expect(await e.context()).toEqual({ pack: 'int8w@1', voice: 'F2' });
+  });
+});

@@ -47,7 +47,7 @@ describe('migration v2 → v3 on a real v2 database', () => {
     expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: 2 });
 
     expect(await migrate(db)).toBe(MIGRATIONS.length);
-    expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: 3 });
+    expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: MIGRATIONS.length });
     expect(await snapshot(db)).toEqual(before);
     const attemptsAfter = await db.getAllAsync<{ id: string; mode: string; is_correct: number }>('SELECT id, mode, is_correct FROM practice_attempts ORDER BY id', []);
     expect(attemptsAfter).toEqual(attemptsBefore);

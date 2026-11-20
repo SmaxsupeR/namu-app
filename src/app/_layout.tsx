@@ -6,6 +6,7 @@ import { Text, useColorScheme, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { getDb } from '../db';
 import { ensureFsrsConfig, loadPreferences } from '../db/repo';
+import { initSpeech } from '../services/speech';
 import { settingsFromPrefs, useApp } from '../state/store';
 import { useT } from '../ui/i18n';
 import { useTheme } from '../ui/theme';
@@ -28,6 +29,7 @@ export default function RootLayout() {
       .then((prefs) => {
         setSettings(settingsFromPrefs(prefs));
         setState('ready');
+        initSpeech();
       })
       .catch((e: unknown) => setState(e instanceof Error ? e.message : String(e)))
       .finally(() => SplashScreen.hideAsync().catch(() => {}));

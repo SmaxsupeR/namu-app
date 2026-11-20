@@ -201,6 +201,23 @@ export const MIGRATIONS: string[] = [
   -- Cards stored so far were scheduled with this FSRS configuration (see src/core/fsrsConfig.ts).
   INSERT INTO user_preferences (key, value) VALUES ('fsrsConfigId', '"namu-fsrs-1"') ON CONFLICT(key) DO NOTHING;
   `,
+  // v4: audio made by the neural voice. The file of a row is always <cache dir>/<key>.wav;
+  // no path is stored, so nothing restored or edited can point the app at another file.
+  // Not part of backups: audio can always be made again.
+  `
+  CREATE TABLE tts_cache (
+    key TEXT PRIMARY KEY CHECK (length(key) = 64),
+    text TEXT NOT NULL,
+    pack TEXT NOT NULL,
+    voice TEXT NOT NULL,
+    bytes INTEGER NOT NULL,
+    duration_ms INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER NOT NULL,
+    uses INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX ix_tts_cache_lru ON tts_cache(last_used_at);
+  `,
 ];
 
 /** Columns of every table, in backup order (parents before children). */

@@ -1,6 +1,9 @@
 // Public speech API used by the screens. The engine choice lives in
 // services/tts; screens only ask to speak or to stop.
+import * as Crypto from 'expo-crypto';
 import { NamuTts } from '../../modules/namu-tts';
+import { getDb } from '../db';
+import { createAudioCache, type AudioCache } from './tts/audioCache';
 import { useApp } from '../state/store';
 import { createPackManager, type PackIO } from './tts/packManager';
 import type { PackState } from './tts/packManager';
@@ -59,10 +62,12 @@ export function currentPack(): Promise<PackState> {
   return packState;
 }
 
-/** Call after installing or deleting a pack. */
+/** Call after installing or deleting a pack: frees the model and drops audio of other packs. */
 export async function packChanged(): Promise<void> {
   packState = null;
   await neural?.unload().catch(() => {});
+  const ctx = await neural?.context().catch(() => null);
+  await audioCache?.clear(ctx?.pack ?? null).catch(() => {});
 }
 
 /** The neural engine; null where it is not supported. */
@@ -76,6 +81,24 @@ export const neural: SupertonicEngine | null = NamuTts
   : null;
 
 NamuTts?.addListener('onEngineReleased', () => neural?.released());
+
+/** Audio made by the neural voice, kept on disk (see tts/audioCache.ts). */
+export const audioCache: AudioCache | null =
+  NamuTts && neural
+    ? createAudioCache({
+        db: getDb,
+        io: { fileSize: NamuTts.fileSize, deleteTree: NamuTts.deleteTree, listDir: NamuTts.listDir },
+        dir: `${storage}/tts-cache`,
+        sha256: (s) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, s),
+        synth: (text, out) => neural.synthToFile(text, out),
+      })
+    : null;
+if (audioCache) neural?.attachCache(audioCache);
+
+/** Startup housekeeping; runs in the background after the database is open. */
+export async function initSpeech(): Promise<void> {
+  await audioCache?.reconcile().catch(() => {});
+}
 
 const engines: TtsEngine[] = neural ? [neural, systemEngine] : [systemEngine];
 

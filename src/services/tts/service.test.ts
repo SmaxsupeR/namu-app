@@ -117,3 +117,42 @@ describe('speech service', () => {
     expect(await service([broken, sys.engine]).speak('학교')).toEqual({ ok: true, engine: 'system' });
   });
 });
+
+describe('speech service with a cached neural voice', () => {
+  function cached(has: boolean) {
+    const f = fake('supertonic');
+    const prefetched: string[] = [];
+    f.engine.hasAudio = async () => has;
+    f.engine.prefetch = (t) => void prefetched.push(t);
+    return { ...f, prefetched };
+  }
+
+  it('plays cached audio with the neural voice', async () => {
+    const neural = cached(true);
+    const sys = fake('system');
+    expect(await service([neural.engine, sys.engine]).speak('학교')).toEqual({ ok: true, engine: 'supertonic' });
+    expect(neural.prefetched).toEqual([]);
+  });
+
+  it('speaks with the phone voice at once and prepares the neural audio for next time', async () => {
+    const neural = cached(false);
+    const sys = fake('system');
+    expect(await service([neural.engine, sys.engine]).speak('학교')).toEqual({ ok: true, engine: 'system' });
+    expect(neural.prefetched).toEqual(['학교']);
+    expect(neural.state.played).toEqual([]);
+  });
+
+  it('waits for the neural voice when the phone has no Korean voice', async () => {
+    const neural = cached(false);
+    const sys = fake('system', { ready: false });
+    expect(await service([neural.engine, sys.engine]).speak('학교')).toEqual({ ok: true, engine: 'supertonic' });
+    expect(neural.state.played).toEqual(['학교']);
+  });
+
+  it('does not prepare neural audio when the user chose the phone voice', async () => {
+    const neural = cached(false);
+    const sys = fake('system');
+    await service([neural.engine, sys.engine], 'system').speak('학교');
+    expect(neural.prefetched).toEqual([]);
+  });
+});
