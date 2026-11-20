@@ -3,7 +3,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { OnnxTts, type DeviceInfo, type LoadResult, type Memory, type SynthResult } from './modules/onnx-tts';
 import { deletePack, downloadCatalogPack, fetchCatalog, installedPacks, packPath, packSize, verifyPack, voicesOf, type CatalogPack, type PackInfo, type Progress } from './src/packs';
@@ -95,6 +95,8 @@ function Lab() {
   const [dualCompleted, setDualCompleted] = useState(0);
   const [autoStatus, setAutoStatus] = useState<'idle' | 'running' | 'completed' | 'cancelled' | 'failed'>('idle');
   const [autoError, setAutoError] = useState<string | null>(null);
+  const pendingTelegramReturn = useRef(false);
+  const wasBackgrounded = useRef(false);
   const [log, setLog] = useState<string[]>([]);
   const [catalog, setCatalog] = useState<CatalogPack[] | null>(null);
 
@@ -369,6 +371,21 @@ function Lab() {
       ]);
   };
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' && pendingTelegramReturn.current) wasBackgrounded.current = true;
+      if (state === 'active' && pendingTelegramReturn.current && wasBackgrounded.current) {
+        pendingTelegramReturn.current = false;
+        wasBackgrounded.current = false;
+        Alert.alert('Отчёт отправлен?', 'Удалять приложение стоит только после того, как вы убедились, что файл или текст отчёта действительно отправлен в @Aadzen.', [
+          { text: 'Пока нет', style: 'cancel' },
+          { text: 'Да, отправлен', onPress: suggestUninstall },
+        ]);
+      }
+    });
+    return () => subscription.remove();
+  });
+
   const shareDualReport = async () => {
     if (!dualReports) return;
     const json = JSON.stringify({
@@ -381,7 +398,7 @@ function Lab() {
       await Clipboard.setStringAsync(json);
       Alert.alert('Отчёт скопирован', 'Откроется чат @Aadzen в Telegram. Вставьте скопированный отчёт и подтвердите отправку.', [
         { text: 'Отмена', style: 'cancel' },
-        { text: 'Открыть @Aadzen', onPress: () => { Linking.openURL('https://t.me/Aadzen').catch(fail); } },
+        { text: 'Открыть @Aadzen', onPress: () => { pendingTelegramReturn.current = true; Linking.openURL('https://t.me/Aadzen').catch((e) => { pendingTelegramReturn.current = false; fail(e); }); } },
         { text: 'Поделиться…', onPress: () => { Share.share({ message: json }).catch(fail); } },
       ]);
     } catch (e) { fail(e); }
