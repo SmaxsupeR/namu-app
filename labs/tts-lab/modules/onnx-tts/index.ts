@@ -60,6 +60,9 @@ declare class OnnxTtsNative extends NativeModule<OnnxTtsEvents> {
   synth(text: string, voice: string, steps: number, speed: number, seed: number, play: boolean): Promise<SynthResult>;
   synthToFile(text: string, voice: string, steps: number, speed: number, seed: number, out: string): Promise<number>;
   release(): Promise<Memory>;
+  startBenchmark(options: string): Promise<boolean>;
+  benchmarkStatus(): Promise<string>;
+  cancelBenchmark(): void;
 }
 
 export const OnnxTts = requireNativeModule<OnnxTtsNative>('OnnxTts');
