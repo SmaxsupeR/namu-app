@@ -4,7 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { OnnxTts, type DeviceInfo, type LoadResult, type Memory, type SynthResult } from './modules/onnx-tts';
 import { deletePack, downloadCatalogPack, downloadOriginal, fetchCatalog, importPack, installedPacks, ORIGINAL, packPath, packSize, verifyPack, voicesOf, type CatalogPack, type PackInfo, type Progress } from './src/packs';
@@ -83,6 +83,9 @@ function Lab() {
   const [last, setLast] = useState<Record<string, SynthResult>>({});
   const [mem, setMem] = useState<Memory | null>(null);
   const [report, setReport] = useState<Report | null>(null);
+  const [dualReports, setDualReports] = useState<{ fast: Report; light: Report } | null>(null);
+  const [dualStage, setDualStage] = useState<'fast' | 'light' | null>(null);
+  const [dualCompleted, setDualCompleted] = useState(0);
   const [log, setLog] = useState<string[]>([]);
   const [catalog, setCatalog] = useState<CatalogPack[] | null>(null);
 
@@ -326,6 +329,142 @@ function Lab() {
     }
   };
 
+
+  // Both modes use the same test set, voice, steps, seed and speed.
+  // Only foldWeights differs. We deliberately do not alter the TTS measurement algorithm.
+  const runBenchmarkMode = async (foldWeights: boolean, phase: number): Promise<Report> => {
+    if (!device || !pack) throw new Error('Нет устройства или установленного голосового пакета');
+    const errors: string[] = [];
+    const items: ItemRun[] = TEST_SET.map((t) => ({
+      id: t.id, text: t.text, totalMs: [], audioSec: 0,
+      parts: { dpMs: 0, encoderMs: 0, flowMs: 0, vocoderMs: 0 },
+    }));
+    let modelLoaded = false;
+    try {
+      const lr = await OnnxTts.load(packPath(pack.id), threads, foldWeights);
+      modelLoaded = true;
+      const currentVoice = voicesOf(pack).includes(voice) ? voice : (voicesOf(pack)[0] ?? 'F1');
+      let firstRequestMs = 0;
+      let memRound1: Memory | null = null;
+      const perMode = 3 * TEST_SET.length + 20;
+      for (let round = 0; round < 3; round++) {
+        for (let i = 0; i < TEST_SET.length; i++) {
+          setProgress({
+            file: `${foldWeights ? 'Быстрый' : 'Экономный'}: круг ${round + 1}/3 · ${i + 1}/${TEST_SET.length}`,
+            done: phase * perMode + round * TEST_SET.length + i,
+            total: 2 * perMode,
+          });
+          try {
+            const r = await OnnxTts.synth(TEST_SET[i].text, currentVoice, steps, speed, 1000 + i, false);
+            if (round === 0 && i === 0) firstRequestMs = r.totalMs;
+            items[i].totalMs.push(r.totalMs);
+            items[i].audioSec = r.audioSec;
+            if (round === 0) items[i].parts = {
+              dpMs: r.dpMs, encoderMs: r.encoderMs, flowMs: r.flowMs, vocoderMs: r.vocoderMs,
+            };
+          } catch (e) {
+            errors.push(`${TEST_SET[i].id}: ${(e as Error).message}`);
+          }
+        }
+        if (round === 0) memRound1 = await OnnxTts.memory();
+      }
+      const memRounds = await OnnxTts.memory();
+      const t0 = Date.now();
+      const fs = await OnnxTts.synth('나무', currentVoice, steps, speed, 7, true);
+      const firstSoundMs = Date.now() - t0;
+      if (fs.playbackStartMs === null) errors.push('playback did not start');
+      const rep: number[] = [];
+      const rssStart = (await OnnxTts.memory()).rssMb;
+      for (let k = 0; k < 20; k++) {
+        setProgress({
+          file: `${foldWeights ? 'Быстрый' : 'Экономный'}: стабильность ${k + 1}/20`,
+          done: phase * perMode + 3 * TEST_SET.length + k,
+          total: 2 * perMode,
+        });
+        try {
+          rep.push((await OnnxTts.synth(TEST_SET[27].text, currentVoice, steps, speed, 5000 + k, false)).totalMs);
+        } catch (e) {
+          errors.push(`repeat ${k}: ${(e as Error).message}`);
+        }
+      }
+      const rssEnd = (await OnnxTts.memory()).rssMb;
+      const afterRelease = await OnnxTts.release();
+      modelLoaded = false;
+      setLoaded(null);
+      setMem(afterRelease);
+      const totalSynth = items.reduce((n, it) => n + median(it.totalMs), 0);
+      const totalAudio = items.reduce((n, it) => n + it.audioSec, 0);
+      const r: Report = {
+        app: 'Namu TTS Lab 0.1.1', date: new Date().toISOString(), device, pack: pack.name,
+        threads, foldWeights, voice: currentVoice, steps, speed,
+        load: lr, firstRequestMs, firstSoundMs,
+        medianSynthMs: median(items.map((it) => median(it.totalMs))),
+        rtf: totalSynth / 1000 / Math.max(totalAudio, 0.001),
+        memoryAfterRound1: memRound1 ?? memRounds,
+        memoryAfterRounds: memRounds,
+        stability: {
+          repeats: rep.length, minMs: rep.length ? Math.min(...rep) : 0,
+          maxMs: rep.length ? Math.max(...rep) : 0, medianMs: median(rep),
+          rssStartMb: rssStart, rssEndMb: rssEnd,
+        },
+        afterRelease, errors, items,
+      };
+      note(`${foldWeights ? 'Быстрый' : 'Экономный'} готов: RTF ${r.rtf.toFixed(2)}, ошибок ${r.errors.length}`);
+      return r;
+    } finally {
+      if (modelLoaded) {
+        try { setMem(await OnnxTts.release()); } catch (e) { note(`Ошибка выгрузки: ${String(e)}`); }
+        setLoaded(null);
+      }
+    }
+  };
+
+  const autoBench = async () => {
+    if (!pack || !device || busy) return;
+    setBusy('auto-bench');
+    setDualReports(null);
+    setDualCompleted(0);
+    try {
+      setDualStage('fast');
+      const fast = await runBenchmarkMode(true, 0);
+      setDualCompleted(1);
+      setDualStage('light');
+      const light = await runBenchmarkMode(false, 1);
+      setDualCompleted(2);
+      setDualReports({ fast, light });
+      setProgress({ file: 'Оба теста завершены', done: 220, total: 220 });
+      note('Два режима измерены. Отчёт готов к отправке.');
+    } catch (e) {
+      fail(e);
+      note('Автоматическая серия прервана. Повторите после устранения ошибки.');
+    } finally {
+      setBusy(null);
+      setDualStage(null);
+      setProgress(null);
+    }
+  };
+
+  const shareDualReport = async () => {
+    if (!dualReports) return;
+    const json = JSON.stringify({
+      schema: 'namu-tts-lab-dual-benchmark-v1',
+      createdAt: new Date().toISOString(),
+      recipient: '@Aadzen',
+      fast: dualReports.fast,
+      light: dualReports.light,
+    }, null, 2);
+    try {
+      // Telegram does not support a guaranteed pre-addressed message with an attachment.
+      // Put the entire report on the clipboard, then open the requested chat.
+      await Clipboard.setStringAsync(json);
+      Alert.alert('Отчёт скопирован', 'Откроется @Aadzen в Telegram. Вставьте отчёт и подтвердите отправку.', [
+        { text: 'Отмена', style: 'cancel' },
+        { text: 'Открыть @Aadzen', onPress: () => { Linking.openURL('https://t.me/Aadzen').catch(fail); } },
+        { text: 'Поделиться…', onPress: () => { Share.share({ message: json }).catch(fail); } },
+      ]);
+    } catch (e) { fail(e); }
+  };
+
   const shareReport = () => {
     if (!report) return;
     const json = JSON.stringify(report, null, 1);
@@ -415,6 +554,40 @@ function Lab() {
         </View>
       </View>
 
+
+      <Text style={s.h2}>Автоматический тест двух режимов</Text>
+      <View style={s.card}>
+        <Text style={s.text}>Быстрый → Экономный</Text>
+        <Text style={s.dim}>Оба режима проходят одинаковые 30 фраз × 3 круга и 20 повторов. Модель автоматически загружается и выгружается между тестами.</Text>
+        <View style={s.row}>
+          <View style={[s.modeCard, dualStage === 'fast' && s.modeActive]}>
+            <Text style={s.text}>⚡ Быстрый</Text>
+            <Text style={s.dim}>{dualReports ? `RTF ${dualReports.fast.rtf.toFixed(2)}` : dualCompleted >= 1 ? 'Готов' : dualStage === 'fast' ? 'Выполняется…' : 'Ожидает'}</Text>
+          </View>
+          <View style={[s.modeCard, dualStage === 'light' && s.modeActive]}>
+            <Text style={s.text}>◉ Экономный</Text>
+            <Text style={s.dim}>{dualReports ? `RTF ${dualReports.light.rtf.toFixed(2)}` : dualStage === 'light' ? 'Выполняется…' : 'Ожидает'}</Text>
+          </View>
+        </View>
+        {busy === 'auto-bench' && progress ? (
+          <View>
+            <Text style={s.text}>{progress.file}</Text>
+            <Text style={s.dim}>{`${Math.min(100, Math.round(100 * progress.done / Math.max(1, progress.total)))}% · ${dualCompleted}/2 режимов`}</Text>
+            <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, 100 * progress.done / Math.max(1, progress.total))}%` }]} /></View>
+          </View>
+        ) : null}
+        <Btn title={busy === 'auto-bench' ? 'Тестирование…' : 'Запустить оба теста'} onPress={autoBench} disabled={disabled || !pack || !device} />
+        {!pack ? <Text style={s.dim}>Сначала скачайте или импортируйте голосовой пакет.</Text> : null}
+        {dualReports ? (
+          <>
+            <Text style={s.text}>{`Быстрый: загрузка ${dualReports.fast.load.loadMs.toFixed(0)} мс · RTF ${dualReports.fast.rtf.toFixed(2)} · пик ${dualReports.fast.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
+            <Text style={s.text}>{`Экономный: загрузка ${dualReports.light.load.loadMs.toFixed(0)} мс · RTF ${dualReports.light.rtf.toFixed(2)} · пик ${dualReports.light.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
+            <Btn title="Отправить отчёт в Telegram · @Aadzen" onPress={shareDualReport} disabled={disabled} kind="soft" />
+          </>
+        ) : null}
+        <Text style={s.dim}>Для достоверного фонового тестирования нужен отдельный Android foreground service; текущая версия автоматически выполняет оба режима при активном процессе приложения.</Text>
+      </View>
+
       <Text style={s.h2}>Полный замер</Text>
       <View style={s.card}>
         <Text style={s.dim}>30 фраз × 3 круга, задержка до звука, 20 повторов длинной фразы, память до и после выгрузки. Около 2–10 минут.</Text>
@@ -488,5 +661,9 @@ const s = StyleSheet.create({
   chipText: { fontSize: 14, color: C.text },
   btn: { minHeight: 48, borderRadius: 14, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', flexGrow: 1 },
   btnText: { fontSize: 15, fontWeight: '600' },
+  modeCard: { flex: 1, minWidth: 120, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 12, gap: 5 },
+  modeActive: { borderColor: C.primary, backgroundColor: C.soft },
+  track: { height: 8, borderRadius: 6, overflow: 'hidden', backgroundColor: C.border, marginTop: 8 },
+  fill: { height: 8, backgroundColor: C.primary, borderRadius: 6 },
   item: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomColor: C.border, borderBottomWidth: StyleSheet.hairlineWidth },
 });
