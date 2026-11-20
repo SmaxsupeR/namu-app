@@ -218,6 +218,21 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX ix_tts_cache_lru ON tts_cache(last_used_at);
   `,
+  // v5: texts waiting to be synthesized by the neural voice, so audio is ready before it is
+  // needed. Survives restarts; not part of backups. id = SHA-256 of the text as spoken.
+  `
+  CREATE TABLE tts_queue (
+    id TEXT PRIMARY KEY CHECK (length(id) = 64),
+    text TEXT NOT NULL,
+    priority INTEGER NOT NULL CHECK (priority BETWEEN 0 AND 3),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_at INTEGER NOT NULL,
+    failed INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX ix_tts_queue_next ON tts_queue(failed, next_at, priority);
+  `,
 ];
 
 /** Columns of every table, in backup order (parents before children). */

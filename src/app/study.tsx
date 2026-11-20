@@ -9,7 +9,7 @@ import { answer, cardKey, completeIntro, createFreeSession, createSession, curre
 import type { SelfGrade } from '../core/model';
 import { getDb } from '../db';
 import { applyEvent, finishSession, getDistractorPool, getEntries, getTodayWordIds, planFreePractice, planSession, startSession, type Entry, type FreeSource } from '../db/repo';
-import { speakKorean, stopSpeech } from '../services/speech';
+import { prepareSpeech, speakKorean, stopSpeech } from '../services/speech';
 import { directionList, useApp } from '../state/store';
 import { Bar, Body, Btn, Card, Empty, Icon, IconBtn, Row } from '../ui/components';
 import { useInterval, useT } from '../ui/i18n';
@@ -132,6 +132,11 @@ export default function Study() {
       todayWords.current = (await getTodayWordIds(db, { now, dictionaryIds: dicts })).length;
       shownAt.current = Date.now();
       setSession(s);
+      // Every word of this session gets neural audio before it comes up (P1).
+      prepareSpeech(
+        [...entries.current.values()].map((e) => e.korean),
+        1,
+      );
     })().catch((e: unknown) => Alert.alert(tr('error'), e instanceof Error ? e.message : String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

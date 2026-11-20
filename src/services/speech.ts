@@ -1,9 +1,14 @@
 // Public speech API used by the screens. The engine choice lives in
 // services/tts; screens only ask to speak or to stop.
 import * as Crypto from 'expo-crypto';
+import { AppState } from 'react-native';
 import { NamuTts } from '../../modules/namu-tts';
 import { getDb } from '../db';
+import { directionList } from '../state/store';
+import { getEntries, planSession } from '../db/repo';
 import { createAudioCache, type AudioCache } from './tts/audioCache';
+import type { Priority } from './tts/queuePolicy';
+import { createSynthQueue, type SynthQueue } from './tts/synthQueue';
 import { useApp } from '../state/store';
 import { createPackManager, type PackIO } from './tts/packManager';
 import type { PackState } from './tts/packManager';
@@ -68,6 +73,8 @@ export async function packChanged(): Promise<void> {
   await neural?.unload().catch(() => {});
   const ctx = await neural?.context().catch(() => null);
   await audioCache?.clear(ctx?.pack ?? null).catch(() => {});
+  if (!ctx) await synthQueue?.clear().catch(() => {});
+  else void refillQueue();
 }
 
 /** The neural engine; null where it is not supported. */
@@ -80,7 +87,11 @@ export const neural: SupertonicEngine | null = NamuTts
     })
   : null;
 
-NamuTts?.addListener('onEngineReleased', () => neural?.released());
+NamuTts?.addListener('onEngineReleased', () => {
+  neural?.released();
+  // Android asked for memory back: give it a minute before loading the model again.
+  synthQueue?.pauseFor(60_000, 'memory');
+});
 
 /** Audio made by the neural voice, kept on disk (see tts/audioCache.ts). */
 export const audioCache: AudioCache | null =
@@ -95,9 +106,75 @@ export const audioCache: AudioCache | null =
     : null;
 if (audioCache) neural?.attachCache(audioCache);
 
+let foreground = AppState.currentState === 'active';
+
+/** Prepares neural audio in the background (see tts/synthQueue.ts). */
+export const synthQueue: SynthQueue | null =
+  NamuTts && neural && audioCache
+    ? createSynthQueue({
+        db: getDb,
+        cache: audioCache,
+        context: () => neural.context(),
+        conditions: () => NamuTts!.conditions(),
+        foreground: () => foreground,
+        sha256: (s) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, s),
+      })
+    : null;
+
+if (synthQueue && neural) {
+  // A word heard with the phone voice is prepared with the neural one right away.
+  neural.setPrefetch((text) => void synthQueue.enqueue([text], 0));
+  AppState.addEventListener('change', (state) => {
+    foreground = state === 'active';
+    if (foreground) synthQueue.kick();
+  });
+}
+
+/**
+ * Asks for neural audio of these texts to be prepared ahead of time. Does nothing when
+ * the user chose the phone voice or no voice pack is installed. Independent of autoSpeak:
+ * that setting only decides whether words are played automatically.
+ */
+export function prepareSpeech(texts: string[], priority: Priority): void {
+  if (!synthQueue || useApp.getState().settings.ttsEngine === 'system' || texts.length === 0) return;
+  void synthQueue.enqueue(texts, priority).catch(() => {});
+}
+
+/** Queues today's words (P2) and, if the user asked for it, every word (P3). */
+export async function refillQueue(): Promise<void> {
+  if (!synthQueue) return;
+  const { settings } = useApp.getState();
+  if (settings.ttsEngine === 'system') return;
+  const db = await getDb();
+  const plan = await planSession(db, { dictionaryIds: [], directions: directionList(settings.directions), now: Date.now(), newPerDay: settings.newPerDay, maxReviews: settings.maxReviews });
+  const ids = [...new Set([...plan.fresh, ...plan.learning.map((l) => l.entryId), ...plan.reviews.map((r) => r.entryId)])];
+  const words = [...(await getEntries(db, ids)).values()].map((e) => e.korean);
+  await synthQueue.enqueue(words, 2);
+  if (settings.ttsPrepareAll) {
+    const all = await db.getAllAsync<{ korean: string }>(
+      'SELECT e.korean FROM entries e JOIN dictionaries d ON d.id = e.dictionary_id WHERE d.is_archived = 0 ORDER BY e.created_at',
+      [],
+    );
+    await synthQueue.enqueue(
+      all.map((r) => r.korean),
+      3,
+    );
+  }
+}
+
 /** Startup housekeeping; runs in the background after the database is open. */
 export async function initSpeech(): Promise<void> {
   await audioCache?.reconcile().catch(() => {});
+  if (!synthQueue) return;
+  synthQueue.start();
+  await refillQueue().catch(() => {});
+  // A new voice or engine choice needs its own audio; "prepare everything" off drops P3.
+  useApp.subscribe((state, prev) => {
+    const a = state.settings;
+    const b = prev.settings;
+    if (a.ttsVoice !== b.ttsVoice || a.ttsEngine !== b.ttsEngine || (a.ttsPrepareAll && !b.ttsPrepareAll)) void refillQueue().catch(() => {});
+    if (!a.ttsPrepareAll && b.ttsPrepareAll) void synthQueue?.drop(3);
+  });
 }
 
 const engines: TtsEngine[] = neural ? [neural, systemEngine] : [systemEngine];

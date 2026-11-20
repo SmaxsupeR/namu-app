@@ -107,6 +107,24 @@ class NamuTtsModule : Module() {
 
     AsyncFunction("memory") { memory() }
 
+    /** What the synthesis queue needs to decide whether to work now. */
+    AsyncFunction("conditions") {
+      val ctx = context()
+      val bm = ctx.getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+      val pm = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+      val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+      val mi = ActivityManager.MemoryInfo().also { am?.getMemoryInfo(it) }
+      mapOf(
+        "battery" to (bm?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1),
+        "charging" to (bm?.isCharging ?: false),
+        "powerSave" to (pm?.isPowerSaveMode ?: false),
+        // 0 none … 3 severe, 4+ critical (Android 10+); -1 unknown.
+        "thermal" to (if (Build.VERSION.SDK_INT >= 29) pm?.currentThermalStatus ?: -1 else -1),
+        "availRamMb" to mi.availMem / 1048576.0,
+        "lowMemory" to mi.lowMemory,
+      )
+    }
+
     AsyncFunction("freeSpaceMb") { dir: String ->
       val f = path(dir).let { if (it.exists()) it else it.parentFile ?: it }
       f.usableSpace / 1048576.0

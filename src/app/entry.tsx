@@ -8,7 +8,7 @@ import { getDb } from '../db';
 import { createEntry, deleteEntry, duplicateKey, findDuplicates, getEntry, updateEntry, type EntryInput } from '../db/repo';
 import { getDictionary } from '../dict';
 import { DICT_ATTRIBUTION, POS_RU, queryKind, search, translationOf, type DictSense, type DictWord } from '../dict/lookup';
-import { speakKorean } from '../services/speech';
+import { prepareSpeech, speakKorean } from '../services/speech';
 import { useApp } from '../state/store';
 import { Body, Btn, Card, Chip, Field, IconBtn, Row, Screen, type InputRef } from '../ui/components';
 import { DictResultCard } from '../ui/DictResults';
@@ -202,6 +202,7 @@ export default function EntryScreen() {
       const db = await getDb();
       if (id) await updateEntry(db, id, input());
       else await createEntry(db, dictionaryId, input());
+      prepareSpeech([form.korean], 2);
       touch();
       if (another) {
         setNotice(tr('saved', { word: form.korean.trim() }));

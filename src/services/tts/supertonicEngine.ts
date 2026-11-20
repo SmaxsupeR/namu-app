@@ -51,6 +51,8 @@ export interface SupertonicEngine extends TtsEngine {
   context(): Promise<CacheContext | null>;
   /** Makes sure this text is in the cache (synthesizing if needed); returns the file. */
   ensureAudio(text: string): Promise<string>;
+  /** Hands background preparation to the synthesis queue. */
+  setPrefetch(fn: (text: string) => void): void;
 }
 
 export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
@@ -64,6 +66,7 @@ export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
   // Background preparation runs one text at a time; later stages replace this with the queue.
   let prefetching: Promise<unknown> = Promise.resolve();
   const pending = new Set<string>();
+  let prefetchHook: ((text: string) => void) | null = null;
 
   async function context(): Promise<CacheContext | null> {
     const s = await deps.packState();
@@ -174,7 +177,11 @@ export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
       const ctx = await context();
       return ctx !== null && (await cache.has(await cache.keyFor(text, ctx)));
     },
+    setPrefetch(fn) {
+      prefetchHook = fn;
+    },
     prefetch(text) {
+      if (prefetchHook) return prefetchHook(text);
       if (!cache || pending.has(text)) return;
       pending.add(text);
       prefetching = prefetching

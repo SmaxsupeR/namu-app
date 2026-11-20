@@ -9,7 +9,7 @@ import { createEntry, duplicateKey, findDuplicates, listDictionaries, type Dicti
 import { dictionaryEdition, getDictionary, type Edition } from '../../dict';
 import { findWordId, getWordDetail, POS_RU, translationOf, type DictExample, type DictWordDetail } from '../../dict/lookup';
 import { subjectName, topicName } from '../../dict/topics';
-import { speakKorean } from '../../services/speech';
+import { prepareSpeech, speakKorean } from '../../services/speech';
 import { useApp } from '../../state/store';
 import { Body, Btn, Card, Chip, Icon, IconBtn, Row, Screen } from '../../ui/components';
 import { FullDictCard, LEVEL_LABEL } from '../../ui/dictUi';
@@ -93,6 +93,7 @@ export default function WordScreen() {
         tags: [],
       });
       touch();
+      prepareSpeech([headword(word)], 2);
       setAdded(dicts?.find((d) => d.id === target)?.name ?? '');
       setDicts(null);
     } catch (e) {

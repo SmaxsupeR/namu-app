@@ -1,7 +1,8 @@
 // "Speech" section of the settings: which voice speaks, and the neural voice pack.
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
-import { neuralSupported, previewNeural, speakKorean } from '../services/speech';
+import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { audioCache, neuralSupported, previewNeural, speakKorean, synthQueue } from '../services/speech';
+import type { QueueStatus } from '../services/tts/synthQueue';
 import type { EnginePreference } from '../services/tts/types';
 import { VOICES, voiceKind, type VoiceId } from '../services/tts/voices';
 import type { Settings } from '../state/store';
@@ -22,6 +23,49 @@ const ERRORS: Record<string, StringKey> = {
   mismatch: 'voiceErrCatalog',
   no_pack: 'voiceErrCatalog',
 };
+
+const PAUSE: Record<string, StringKey> = {
+  background: 'queuePausedBackground',
+  battery: 'queuePausedBattery',
+  power_save: 'queuePausedPowerSave',
+  thermal: 'queuePausedThermal',
+  memory: 'queuePausedMemory',
+  unavailable: 'queuePausedUnavailable',
+};
+
+/** Background preparation: how much is ready, what is waiting, why it is paused. */
+function QueueCard({ prepareAll, onPrepareAll }: { prepareAll: boolean; onPrepareAll: (v: boolean) => void }) {
+  const t = useTheme();
+  const tr = useT();
+  const [status, setStatus] = useState<QueueStatus | null>(null);
+  const [ready, setReady] = useState<number | null>(null);
+  useEffect(() => {
+    if (!synthQueue) return;
+    const off = synthQueue.subscribe((s) => {
+      setStatus(s);
+      audioCache?.stats().then((x) => setReady(x.count)).catch(() => {});
+    });
+    return () => {
+      off();
+    };
+  }, []);
+  if (!synthQueue) return null;
+  const waiting = status ? status.pending.reduce((a, b) => a + b, 0) : 0;
+  return (
+    <Card>
+      <Text style={[styles.label, { color: t.text }]}>{tr('queueTitle')}</Text>
+      <Body dim>{tr('queueReady', { n: ready ?? 0 })}</Body>
+      {waiting > 0 ? <Body dim>{tr('queueWaiting', { n: waiting })}</Body> : null}
+      {waiting > 0 && status?.paused ? <Body style={{ color: t.warn }}>{tr(PAUSE[status.paused] ?? 'queuePausedUnavailable')}</Body> : null}
+      {status && status.failed > 0 ? <Btn kind="ghost" small icon="refresh" title={tr('queueRetry', { n: status.failed })} onPress={() => synthQueue?.retryFailed()} /> : null}
+      <Row style={styles.between}>
+        <Text style={[styles.flex, { color: t.text, fontSize: 15 }]}>{tr('queuePrepareAll')}</Text>
+        <Switch value={prepareAll} onValueChange={onPrepareAll} trackColor={{ true: t.primary }} accessibilityLabel={tr('queuePrepareAll')} />
+      </Row>
+      <Body dim>{tr('queuePrepareAllHint')}</Body>
+    </Card>
+  );
+}
 
 export function VoiceSettings({ settings, update }: { settings: Settings; update: <K extends keyof Settings>(key: K, value: Settings[K]) => void }) {
   const t = useTheme();
@@ -125,12 +169,15 @@ export function VoiceSettings({ settings, update }: { settings: Settings; update
 
         {error ? <Body style={{ color: t.danger }}>{error === 'cancelled' ? tr('voiceCancelled') : tr(ERRORS[error] ?? 'voiceErrNetwork')}</Body> : null}
       </Card>
+      {neuralSupported && state?.status === 'ready' && settings.ttsEngine !== 'system' ? <QueueCard prepareAll={settings.ttsPrepareAll} onPrepareAll={(v) => update('ttsPrepareAll', v)} /> : null}
       <Body dim>{tr('voiceLicense')}</Body>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  between: { justifyContent: 'space-between', minHeight: 44 },
   label: { fontSize: 16, fontWeight: '600' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
 });

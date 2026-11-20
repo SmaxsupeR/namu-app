@@ -31,6 +31,8 @@ export interface Settings {
   ttsEngine: EnginePreference;
   /** Neural voice: F1–F5 (female) or M1–M5 (male). */
   ttsVoice: VoiceId;
+  /** Prepare neural audio for every word ahead of time (asked once; uses battery and storage). */
+  ttsPrepareAll: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -47,6 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
   practiceAttempts: 3,
   ttsEngine: 'auto',
   ttsVoice: DEFAULT_VOICE,
+  ttsPrepareAll: false,
 };
 
 export function settingsFromPrefs(prefs: Record<string, string>): Settings {

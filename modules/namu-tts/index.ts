@@ -12,6 +12,17 @@ export interface DeviceInfo {
   lowMemory: boolean;
 }
 
+export interface Conditions {
+  /** 0–100, or -1 when unknown. */
+  battery: number;
+  charging: boolean;
+  powerSave: boolean;
+  /** Android thermal status: 0 none … 3 severe, 4+ critical; -1 unknown. */
+  thermal: number;
+  availRamMb: number;
+  lowMemory: boolean;
+}
+
 export interface Memory {
   rssMb: number;
   peakMb: number;
@@ -33,6 +44,7 @@ export declare class NamuTtsNative extends NativeModule<Events> {
   storageDir(): string;
   deviceInfo(): Promise<DeviceInfo>;
   memory(): Promise<Memory>;
+  conditions(): Promise<Conditions>;
   freeSpaceMb(dir: string): Promise<number>;
   sha256(file: string): Promise<string>;
   /** Downloads with resume (HTTP Range); resolves with the bytes on disk. */
