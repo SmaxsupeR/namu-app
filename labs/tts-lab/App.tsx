@@ -1,13 +1,12 @@
 // Namu TTS Lab: an experimental, separate app for measuring Supertonic 3 on a real phone.
 // It does not touch the main app or its text-to-speech.
 import * as Clipboard from 'expo-clipboard';
-import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { OnnxTts, type DeviceInfo, type LoadResult, type Memory, type SynthResult } from './modules/onnx-tts';
-import { deletePack, downloadCatalogPack, downloadOriginal, fetchCatalog, importPack, installedPacks, ORIGINAL, packPath, packSize, verifyPack, voicesOf, type CatalogPack, type PackInfo, type Progress } from './src/packs';
+import { deletePack, downloadCatalogPack, fetchCatalog, installedPacks, packPath, packSize, verifyPack, voicesOf, type CatalogPack, type PackInfo, type Progress } from './src/packs';
 import { TEST_SET } from './src/testSet';
 
 const C = { bg: '#F6F7F4', card: '#FFFFFF', text: '#17201B', dim: '#5F6B64', border: '#DFE4DD', primary: '#2F9E6E', soft: '#DDF3E8', danger: '#D64545' };
@@ -83,6 +82,21 @@ function Lab() {
   const [last, setLast] = useState<Record<string, SynthResult>>({});
   const [mem, setMem] = useState<Memory | null>(null);
   const [report, setReport] = useState<Report | null>(null);
+  type NativeModeResult = {
+    loadMs: number;
+    rtf: number;
+    memoryAfterRounds: Memory;
+    medianSynthMs: number;
+    errors: string[];
+    [key: string]: unknown;
+  };
+  const [dualReports, setDualReports] = useState<{ fast: NativeModeResult; light: NativeModeResult } | null>(null);
+  const [dualStage, setDualStage] = useState<'fast' | 'light' | null>(null);
+  const [dualCompleted, setDualCompleted] = useState(0);
+  const [autoStatus, setAutoStatus] = useState<'idle' | 'running' | 'completed' | 'cancelled' | 'failed'>('idle');
+  const [autoError, setAutoError] = useState<string | null>(null);
+  const pendingTelegramReturn = useRef(false);
+  const wasBackgrounded = useRef(false);
   const [log, setLog] = useState<string[]>([]);
   const [catalog, setCatalog] = useState<CatalogPack[] | null>(null);
 
@@ -115,21 +129,6 @@ function Lab() {
 
   const pack = packs.find((p) => p.id === packId) ?? null;
 
-  const download = async () => {
-    stop.current = false;
-    setBusy('download');
-    try {
-      const r = await downloadOriginal(setProgress, () => stop.current);
-      note(r.ok ? 'Оригинал скачан и проверен' : `Скачано с ошибками: нет ${r.missing.length}, повреждено ${r.corrupt.length}`);
-      refresh();
-    } catch (e) {
-      fail(e);
-    } finally {
-      setBusy(null);
-      setProgress(null);
-    }
-  };
-
   const downloadFromCatalog = async (c: CatalogPack) => {
     stop.current = false;
     setBusy('download');
@@ -143,29 +142,6 @@ function Lab() {
     } finally {
       setBusy(null);
       setProgress(null);
-    }
-  };
-
-  const importZip = async () => {
-    try {
-      const picked = await File.pickFileAsync({});
-      if (picked.canceled) return;
-      setBusy('import');
-      // The picker may give a content:// address; copy into the app's cache to get a real file.
-      const copy = new File(Paths.cache, 'import.zip');
-      if (copy.exists) copy.delete();
-      picked.result.copy(copy);
-      const info = await importPack(copy.uri);
-      copy.delete();
-      note(`Импортирован пакет ${info.name}`);
-      const v = await verifyPack(info);
-      note(v.ok ? 'Целостность в порядке' : `Повреждён: нет ${v.missing.join(', ')}; ошибки ${v.corrupt.join(', ')}`);
-      refresh();
-      setPackId(info.id);
-    } catch (e) {
-      fail(e);
-    } finally {
-      setBusy(null);
     }
   };
 
@@ -326,6 +302,108 @@ function Lab() {
     }
   };
 
+
+
+  const updateNativeBenchmark = useCallback(async () => {
+    const raw = await OnnxTts.benchmarkStatus();
+    const status = JSON.parse(raw) as {
+      state: 'idle' | 'running' | 'completed' | 'cancelled' | 'failed';
+      done: number; total: number; label?: string;
+      report?: { fast: NativeModeResult; light: NativeModeResult };
+    };
+    setAutoStatus(status.state);
+    setDualStage(status.state === 'running' ? (status.done < 110 ? 'fast' : 'light') : null);
+    setDualCompleted(status.state === 'completed' ? 2 : status.done >= 110 ? 1 : 0);
+    setAutoError(status.state === 'failed' ? status.label ?? 'Ошибка бенчмарка' : null);
+    setProgress(status.state === 'running' ? {
+      file: status.label ?? 'Выполняется…', done: status.done, total: status.total,
+    } : null);
+    if (status.state === 'completed' && status.report) {
+      setDualReports(status.report);
+    }
+    if (status.state !== 'running') {
+      setBusy((old) => old === 'auto-bench' ? null : old);
+    }
+  }, []);
+
+  useEffect(() => {
+    updateNativeBenchmark().catch(() => {});
+    const interval = setInterval(() => updateNativeBenchmark().catch(() => {}), 1500);
+    return () => clearInterval(interval);
+  }, [updateNativeBenchmark]);
+
+  const autoBench = async () => {
+    if (!pack || !device || busy || autoStatus === 'running') return;
+    setBusy('auto-bench');
+    setDualReports(null);
+    setAutoError(null);
+    setDualCompleted(0);
+    setDualStage('fast');
+    try {
+      const chosenVoice = voicesOf(pack).includes(voice) ? voice : (voicesOf(pack)[0] ?? 'F1');
+      const options = JSON.stringify({
+        packPath: packPath(pack.id), packName: pack.name,
+        threads, voice: chosenVoice, steps, speed,
+        items: TEST_SET.map(({ id, text }) => ({ id, text })),
+      });
+      await OnnxTts.startBenchmark(options);
+      setAutoStatus('running');
+      note('Запущен фоновый тест: быстрый → экономный');
+    } catch (e) {
+      setBusy(null);
+      setDualStage(null);
+      fail(e);
+    }
+  };
+
+  const cancelAutoBench = () => {
+    OnnxTts.cancelBenchmark();
+    note('Запрошена остановка после текущего синтеза');
+  };
+
+  const suggestUninstall = () => {
+    Alert.alert('Тестирование завершено',
+      'Удалить Namu TTS Lab вместе со скачанными моделями и внутренними данными? Убедитесь, что отчёт уже отправлен.',
+      [
+        { text: 'Оставить', style: 'cancel' },
+        { text: 'Перейти к удалению', style: 'destructive',
+          onPress: () => { OnnxTts.requestUninstall().catch(fail); } },
+      ]);
+  };
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' && pendingTelegramReturn.current) wasBackgrounded.current = true;
+      if (state === 'active' && pendingTelegramReturn.current && wasBackgrounded.current) {
+        pendingTelegramReturn.current = false;
+        wasBackgrounded.current = false;
+        Alert.alert('Отчёт отправлен?', 'Удалять приложение стоит только после того, как вы убедились, что файл или текст отчёта действительно отправлен в @Aadzen.', [
+          { text: 'Пока нет', style: 'cancel' },
+          { text: 'Да, отправлен', onPress: suggestUninstall },
+        ]);
+      }
+    });
+    return () => subscription.remove();
+  });
+
+  const shareDualReport = async () => {
+    if (!dualReports) return;
+    const json = JSON.stringify({
+      schema: 'namu-tts-lab-dual-benchmark-v1',
+      device, recipient: '@Aadzen',
+      createdAt: new Date().toISOString(),
+      fast: dualReports.fast, light: dualReports.light,
+    }, null, 2);
+    try {
+      await Clipboard.setStringAsync(json);
+      Alert.alert('Отчёт скопирован', 'Откроется чат @Aadzen в Telegram. Вставьте скопированный отчёт и подтвердите отправку.', [
+        { text: 'Отмена', style: 'cancel' },
+        { text: 'Открыть @Aadzen', onPress: () => { pendingTelegramReturn.current = true; Linking.openURL('https://t.me/Aadzen').catch((e) => { pendingTelegramReturn.current = false; fail(e); }); } },
+        { text: 'Поделиться…', onPress: () => { Share.share({ message: json }).catch(fail); } },
+      ]);
+    } catch (e) { fail(e); }
+  };
+
   const shareReport = () => {
     if (!report) return;
     const json = JSON.stringify(report, null, 1);
@@ -356,20 +434,18 @@ function Lab() {
 
       <Text style={s.h2}>Голосовые пакеты</Text>
       <View style={s.card}>
-        {packs.length === 0 ? <Text style={s.dim}>Пакетов нет. Скачайте оригинал или импортируйте сжатый пакет (.zip).</Text> : null}
+        {packs.length === 0 ? <Text style={s.dim}>Для теста понадобится голосовой пакет. Выберите подготовленную модель ниже.</Text> : null}
         <View style={s.row}>
           {packs.map((p) => (
             <Chip key={p.id} label={`${p.name} · ${mb(packSize(p))}`} on={p.id === packId} onPress={() => setPackId(p.id)} disabled={disabled} />
           ))}
         </View>
-        {progress ? <Text style={s.dim}>{progress.total ? `${progress.file}: ${mb(progress.done)} из ${mb(progress.total)}` : progress.file}</Text> : null}
+        {progress && busy === 'download' ? <Text style={s.dim}>{progress.total ? `${progress.file}: ${mb(progress.done)} из ${mb(progress.total)}` : progress.file}</Text> : null}
         {catalog === null ? <Text style={s.dim}>Загружаю каталог пакетов…</Text> : null}
         {catalog?.map((c) => (
-          <Btn key={c.id} title={`Скачать «${c.name}» (${mb(c.size)}) с GitHub`} onPress={() => downloadFromCatalog(c)} disabled={disabled} />
+          <Btn key={c.id} title={`Установить модель «${c.name}» (${mb(c.size)})`} onPress={() => downloadFromCatalog(c)} disabled={disabled} />
         ))}
-        <Btn title={`Скачать оригинал (${mb(packSize(ORIGINAL))}) с Hugging Face`} onPress={download} disabled={disabled} kind="soft" />
         {busy === 'download' ? <Btn title="Остановить скачивание" onPress={() => (stop.current = true)} kind="danger" /> : null}
-        <Btn title="Импортировать пакет (.zip)" onPress={importZip} disabled={disabled} kind="soft" />
         <View style={s.row}>
           <Btn title="Проверить целостность" onPress={verify} disabled={disabled || !pack} kind="soft" />
           <Btn title="Удалить" onPress={remove} disabled={disabled || !pack} kind="danger" />
@@ -413,6 +489,43 @@ function Lab() {
             <Chip key={n} label={`${n} шагов`} on={steps === n} onPress={() => setSteps(n)} disabled={disabled} />
           ))}
         </View>
+      </View>
+
+
+      <Text style={s.h2}>Автоматический тест двух режимов</Text>
+      <View style={s.card}>
+        <Text style={s.text}>Быстрый → Экономный</Text>
+        <Text style={s.dim}>Оба режима проходят одинаковые 30 фраз × 3 круга и 20 повторов. Модель автоматически загружается и выгружается между тестами.</Text>
+        <View style={s.row}>
+          <View style={[s.modeCard, dualStage === 'fast' && s.modeActive]}>
+            <Text style={s.text}>⚡ Быстрый</Text>
+            <Text style={s.dim}>{dualReports ? `RTF ${dualReports.fast.rtf.toFixed(2)}` : dualCompleted >= 1 ? 'Готов' : dualStage === 'fast' ? 'Выполняется…' : 'Ожидает'}</Text>
+          </View>
+          <View style={[s.modeCard, dualStage === 'light' && s.modeActive]}>
+            <Text style={s.text}>◉ Экономный</Text>
+            <Text style={s.dim}>{dualReports ? `RTF ${dualReports.light.rtf.toFixed(2)}` : dualStage === 'light' ? 'Выполняется…' : 'Ожидает'}</Text>
+          </View>
+        </View>
+        {autoError ? <Text style={[s.text, { color: C.danger }]}>{autoError}</Text> : null}
+        {autoStatus === 'running' && progress ? (
+          <View>
+            <Text style={s.text}>{progress.file}</Text>
+            <Text style={s.dim}>{`${Math.min(100, Math.round(100 * progress.done / Math.max(1, progress.total)))}% · ${dualCompleted}/2 режимов`}</Text>
+            <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, 100 * progress.done / Math.max(1, progress.total))}%` }]} /></View>
+          </View>
+        ) : null}
+        <Btn title={autoStatus === 'running' ? 'Тестирование в фоне…' : 'Запустить оба теста'} onPress={autoBench} disabled={disabled || autoStatus === 'running' || !pack || !device} />
+        {autoStatus === 'running' ? <Btn title="Остановить тест" onPress={cancelAutoBench} kind="danger" /> : null}
+        {!pack ? <Text style={s.dim}>Сначала установите голосовой пакет из списка выше.</Text> : null}
+        {dualReports ? (
+          <>
+            <Text style={s.text}>{`Быстрый: загрузка ${dualReports.fast.loadMs.toFixed(0)} мс · RTF ${dualReports.fast.rtf.toFixed(2)} · пик ${dualReports.fast.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
+            <Text style={s.text}>{`Экономный: загрузка ${dualReports.light.loadMs.toFixed(0)} мс · RTF ${dualReports.light.rtf.toFixed(2)} · пик ${dualReports.light.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
+            <Btn title="Отправить отчёт в Telegram · @Aadzen" onPress={shareDualReport} disabled={disabled} kind="soft" />
+            <Btn title="Удалить приложение и модели" onPress={suggestUninstall} disabled={disabled} kind="danger" />
+          </>
+        ) : null}
+        <Text style={s.dim}>Android foreground service поддерживает работу после сворачивания. Открытие отчёта и прогресс обновятся при возвращении в приложение. Не выключайте процесс принудительно.</Text>
       </View>
 
       <Text style={s.h2}>Полный замер</Text>
@@ -488,5 +601,9 @@ const s = StyleSheet.create({
   chipText: { fontSize: 14, color: C.text },
   btn: { minHeight: 48, borderRadius: 14, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', flexGrow: 1 },
   btnText: { fontSize: 15, fontWeight: '600' },
+  modeCard: { flex: 1, minWidth: 120, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 12, gap: 5 },
+  modeActive: { borderColor: C.primary, backgroundColor: C.soft },
+  track: { height: 8, borderRadius: 6, overflow: 'hidden', backgroundColor: C.border, marginTop: 8 },
+  fill: { height: 8, backgroundColor: C.primary, borderRadius: 6 },
   item: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomColor: C.border, borderBottomWidth: StyleSheet.hairlineWidth },
 });
