@@ -4,7 +4,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { OnnxTts, type DeviceInfo, type Memory } from './modules/onnx-tts';
 import { downloadCatalogPack, fetchCatalog, installedPacks, packPath, packSize, verifyPack, voicesOf, type CatalogPack, type PackInfo, type Progress } from './src/packs';
@@ -198,12 +198,30 @@ function Lab() {
       file.create();
       file.write(json);
       if (!(await Sharing.isAvailableAsync())) throw new Error('Системное меню отправки недоступно');
-      pendingTelegramReturn.current = true;
-      await Sharing.shareAsync(file.uri, {
-        mimeType: 'application/json',
-        dialogTitle: 'Выберите Telegram и отправьте отчёт в @Aadzen',
-        UTI: 'public.json',
-      });
+
+      // Android's ACTION_SEND has no reliable way to address an arbitrary
+      // Telegram @username. Do not imply the attachment is pre-addressed.
+      Alert.alert(
+        'Отправить отчёт в @Aadzen',
+        'В Telegram нужно выбрать чат @Aadzen. Android не позволяет автоматически прикрепить JSON к заранее выбранному чату.',
+        [
+          { text: 'Отмена', style: 'cancel' },
+          { text: 'Открыть чат @Aadzen', onPress: () => {
+            Linking.openURL('https://t.me/Aadzen').catch(fail);
+          } },
+          { text: 'Отправить JSON-файл', onPress: () => {
+            pendingTelegramReturn.current = true;
+            Sharing.shareAsync(file.uri, {
+              mimeType: 'application/json',
+              dialogTitle: 'Выберите Telegram, затем чат @Aadzen',
+              UTI: 'public.json',
+            }).catch((e) => {
+              pendingTelegramReturn.current = false;
+              fail(e);
+            });
+          } },
+        ],
+      );
     } catch (e) {
       pendingTelegramReturn.current = false;
       fail(e);
@@ -275,7 +293,7 @@ function Lab() {
           <>
             <Text style={s.text}>{`Быстрый: загрузка ${dualReports.fast.loadMs.toFixed(0)} мс · RTF ${dualReports.fast.rtf.toFixed(2)} · пик ${dualReports.fast.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
             <Text style={s.text}>{`Экономный: загрузка ${dualReports.light.loadMs.toFixed(0)} мс · RTF ${dualReports.light.rtf.toFixed(2)} · пик ${dualReports.light.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
-            <Btn title="Поделиться JSON-отчётом · @Aadzen" onPress={shareDualReport} disabled={disabled} kind="soft" />
+            <Btn title="Отправить JSON-отчёт в @Aadzen" onPress={shareDualReport} disabled={disabled} kind="soft" />
             <Btn title="Удалить приложение и модели" onPress={suggestUninstall} disabled={disabled} kind="danger" />
           </>
         ) : null}
