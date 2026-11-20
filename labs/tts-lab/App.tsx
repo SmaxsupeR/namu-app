@@ -83,9 +83,19 @@ function Lab() {
   const [last, setLast] = useState<Record<string, SynthResult>>({});
   const [mem, setMem] = useState<Memory | null>(null);
   const [report, setReport] = useState<Report | null>(null);
-  const [dualReports, setDualReports] = useState<{ fast: Report; light: Report } | null>(null);
+  type NativeModeResult = {
+    loadMs: number;
+    rtf: number;
+    memoryAfterRounds: Memory;
+    medianSynthMs: number;
+    errors: string[];
+    [key: string]: unknown;
+  };
+  const [dualReports, setDualReports] = useState<{ fast: NativeModeResult; light: NativeModeResult } | null>(null);
   const [dualStage, setDualStage] = useState<'fast' | 'light' | null>(null);
   const [dualCompleted, setDualCompleted] = useState(0);
+  const [autoStatus, setAutoStatus] = useState<'idle' | 'running' | 'completed' | 'cancelled' | 'failed'>('idle');
+  const [autoError, setAutoError] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [catalog, setCatalog] = useState<CatalogPack[] | null>(null);
 
@@ -330,134 +340,75 @@ function Lab() {
   };
 
 
-  // Both modes use the same test set, voice, steps, seed and speed.
-  // Only foldWeights differs. We deliberately do not alter the TTS measurement algorithm.
-  const runBenchmarkMode = async (foldWeights: boolean, phase: number): Promise<Report> => {
-    if (!device || !pack) throw new Error('Нет устройства или установленного голосового пакета');
-    const errors: string[] = [];
-    const items: ItemRun[] = TEST_SET.map((t) => ({
-      id: t.id, text: t.text, totalMs: [], audioSec: 0,
-      parts: { dpMs: 0, encoderMs: 0, flowMs: 0, vocoderMs: 0 },
-    }));
-    let modelLoaded = false;
+
+  const updateNativeBenchmark = useCallback(async () => {
+    const raw = await OnnxTts.benchmarkStatus();
+    const status = JSON.parse(raw) as {
+      state: 'idle' | 'running' | 'completed' | 'cancelled' | 'failed';
+      done: number; total: number; label?: string;
+      report?: { fast: NativeModeResult; light: NativeModeResult };
+    };
+    setAutoStatus(status.state);
+    setDualStage(status.state === 'running' ? (status.done < 110 ? 'fast' : 'light') : null);
+    setDualCompleted(status.state === 'completed' ? 2 : status.done >= 110 ? 1 : 0);
+    setAutoError(status.state === 'failed' ? status.label ?? 'Ошибка бенчмарка' : null);
+    setProgress(status.state === 'running' ? {
+      file: status.label ?? 'Выполняется…', done: status.done, total: status.total,
+    } : null);
+    if (status.state === 'completed' && status.report) {
+      setDualReports(status.report);
+    }
+    if (status.state !== 'running') {
+      setBusy((old) => old === 'auto-bench' ? null : old);
+    }
+  }, []);
+
+  useEffect(() => {
+    updateNativeBenchmark().catch(() => {});
+    const interval = setInterval(() => updateNativeBenchmark().catch(() => {}), 1500);
+    return () => clearInterval(interval);
+  }, [updateNativeBenchmark]);
+
+  const autoBench = async () => {
+    if (!pack || !device || busy || autoStatus === 'running') return;
+    setBusy('auto-bench');
+    setDualReports(null);
+    setAutoError(null);
+    setDualCompleted(0);
+    setDualStage('fast');
     try {
-      const lr = await OnnxTts.load(packPath(pack.id), threads, foldWeights);
-      modelLoaded = true;
-      const currentVoice = voicesOf(pack).includes(voice) ? voice : (voicesOf(pack)[0] ?? 'F1');
-      let firstRequestMs = 0;
-      let memRound1: Memory | null = null;
-      const perMode = 3 * TEST_SET.length + 20;
-      for (let round = 0; round < 3; round++) {
-        for (let i = 0; i < TEST_SET.length; i++) {
-          setProgress({
-            file: `${foldWeights ? 'Быстрый' : 'Экономный'}: круг ${round + 1}/3 · ${i + 1}/${TEST_SET.length}`,
-            done: phase * perMode + round * TEST_SET.length + i,
-            total: 2 * perMode,
-          });
-          try {
-            const r = await OnnxTts.synth(TEST_SET[i].text, currentVoice, steps, speed, 1000 + i, false);
-            if (round === 0 && i === 0) firstRequestMs = r.totalMs;
-            items[i].totalMs.push(r.totalMs);
-            items[i].audioSec = r.audioSec;
-            if (round === 0) items[i].parts = {
-              dpMs: r.dpMs, encoderMs: r.encoderMs, flowMs: r.flowMs, vocoderMs: r.vocoderMs,
-            };
-          } catch (e) {
-            errors.push(`${TEST_SET[i].id}: ${(e as Error).message}`);
-          }
-        }
-        if (round === 0) memRound1 = await OnnxTts.memory();
-      }
-      const memRounds = await OnnxTts.memory();
-      const t0 = Date.now();
-      const fs = await OnnxTts.synth('나무', currentVoice, steps, speed, 7, true);
-      const firstSoundMs = Date.now() - t0;
-      if (fs.playbackStartMs === null) errors.push('playback did not start');
-      const rep: number[] = [];
-      const rssStart = (await OnnxTts.memory()).rssMb;
-      for (let k = 0; k < 20; k++) {
-        setProgress({
-          file: `${foldWeights ? 'Быстрый' : 'Экономный'}: стабильность ${k + 1}/20`,
-          done: phase * perMode + 3 * TEST_SET.length + k,
-          total: 2 * perMode,
-        });
-        try {
-          rep.push((await OnnxTts.synth(TEST_SET[27].text, currentVoice, steps, speed, 5000 + k, false)).totalMs);
-        } catch (e) {
-          errors.push(`repeat ${k}: ${(e as Error).message}`);
-        }
-      }
-      const rssEnd = (await OnnxTts.memory()).rssMb;
-      const afterRelease = await OnnxTts.release();
-      modelLoaded = false;
-      setLoaded(null);
-      setMem(afterRelease);
-      const totalSynth = items.reduce((n, it) => n + median(it.totalMs), 0);
-      const totalAudio = items.reduce((n, it) => n + it.audioSec, 0);
-      const r: Report = {
-        app: 'Namu TTS Lab 0.1.1', date: new Date().toISOString(), device, pack: pack.name,
-        threads, foldWeights, voice: currentVoice, steps, speed,
-        load: lr, firstRequestMs, firstSoundMs,
-        medianSynthMs: median(items.map((it) => median(it.totalMs))),
-        rtf: totalSynth / 1000 / Math.max(totalAudio, 0.001),
-        memoryAfterRound1: memRound1 ?? memRounds,
-        memoryAfterRounds: memRounds,
-        stability: {
-          repeats: rep.length, minMs: rep.length ? Math.min(...rep) : 0,
-          maxMs: rep.length ? Math.max(...rep) : 0, medianMs: median(rep),
-          rssStartMb: rssStart, rssEndMb: rssEnd,
-        },
-        afterRelease, errors, items,
-      };
-      note(`${foldWeights ? 'Быстрый' : 'Экономный'} готов: RTF ${r.rtf.toFixed(2)}, ошибок ${r.errors.length}`);
-      return r;
-    } finally {
-      if (modelLoaded) {
-        try { setMem(await OnnxTts.release()); } catch (e) { note(`Ошибка выгрузки: ${String(e)}`); }
-        setLoaded(null);
-      }
+      const chosenVoice = voicesOf(pack).includes(voice) ? voice : (voicesOf(pack)[0] ?? 'F1');
+      const options = JSON.stringify({
+        packPath: packPath(pack.id), packName: pack.name,
+        threads, voice: chosenVoice, steps, speed,
+        items: TEST_SET.map(({ id, text }) => ({ id, text })),
+      });
+      await OnnxTts.startBenchmark(options);
+      setAutoStatus('running');
+      note('Запущен фоновый тест: быстрый → экономный');
+    } catch (e) {
+      setBusy(null);
+      setDualStage(null);
+      fail(e);
     }
   };
 
-  const autoBench = async () => {
-    if (!pack || !device || busy) return;
-    setBusy('auto-bench');
-    setDualReports(null);
-    setDualCompleted(0);
-    try {
-      setDualStage('fast');
-      const fast = await runBenchmarkMode(true, 0);
-      setDualCompleted(1);
-      setDualStage('light');
-      const light = await runBenchmarkMode(false, 1);
-      setDualCompleted(2);
-      setDualReports({ fast, light });
-      setProgress({ file: 'Оба теста завершены', done: 220, total: 220 });
-      note('Два режима измерены. Отчёт готов к отправке.');
-    } catch (e) {
-      fail(e);
-      note('Автоматическая серия прервана. Повторите после устранения ошибки.');
-    } finally {
-      setBusy(null);
-      setDualStage(null);
-      setProgress(null);
-    }
+  const cancelAutoBench = () => {
+    OnnxTts.cancelBenchmark();
+    note('Запрошена остановка после текущего синтеза');
   };
 
   const shareDualReport = async () => {
     if (!dualReports) return;
     const json = JSON.stringify({
       schema: 'namu-tts-lab-dual-benchmark-v1',
+      device, recipient: '@Aadzen',
       createdAt: new Date().toISOString(),
-      recipient: '@Aadzen',
-      fast: dualReports.fast,
-      light: dualReports.light,
+      fast: dualReports.fast, light: dualReports.light,
     }, null, 2);
     try {
-      // Telegram does not support a guaranteed pre-addressed message with an attachment.
-      // Put the entire report on the clipboard, then open the requested chat.
       await Clipboard.setStringAsync(json);
-      Alert.alert('Отчёт скопирован', 'Откроется @Aadzen в Telegram. Вставьте отчёт и подтвердите отправку.', [
+      Alert.alert('Отчёт скопирован', 'Откроется чат @Aadzen в Telegram. Вставьте скопированный отчёт и подтвердите отправку.', [
         { text: 'Отмена', style: 'cancel' },
         { text: 'Открыть @Aadzen', onPress: () => { Linking.openURL('https://t.me/Aadzen').catch(fail); } },
         { text: 'Поделиться…', onPress: () => { Share.share({ message: json }).catch(fail); } },
@@ -569,23 +520,25 @@ function Lab() {
             <Text style={s.dim}>{dualReports ? `RTF ${dualReports.light.rtf.toFixed(2)}` : dualStage === 'light' ? 'Выполняется…' : 'Ожидает'}</Text>
           </View>
         </View>
-        {busy === 'auto-bench' && progress ? (
+        {autoError ? <Text style={[s.text, { color: C.danger }]}>{autoError}</Text> : null}
+        {autoStatus === 'running' && progress ? (
           <View>
             <Text style={s.text}>{progress.file}</Text>
             <Text style={s.dim}>{`${Math.min(100, Math.round(100 * progress.done / Math.max(1, progress.total)))}% · ${dualCompleted}/2 режимов`}</Text>
             <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, 100 * progress.done / Math.max(1, progress.total))}%` }]} /></View>
           </View>
         ) : null}
-        <Btn title={busy === 'auto-bench' ? 'Тестирование…' : 'Запустить оба теста'} onPress={autoBench} disabled={disabled || !pack || !device} />
+        <Btn title={autoStatus === 'running' ? 'Тестирование в фоне…' : 'Запустить оба теста'} onPress={autoBench} disabled={disabled || autoStatus === 'running' || !pack || !device} />
+        {autoStatus === 'running' ? <Btn title="Остановить тест" onPress={cancelAutoBench} kind="danger" /> : null}
         {!pack ? <Text style={s.dim}>Сначала скачайте или импортируйте голосовой пакет.</Text> : null}
         {dualReports ? (
           <>
-            <Text style={s.text}>{`Быстрый: загрузка ${dualReports.fast.load.loadMs.toFixed(0)} мс · RTF ${dualReports.fast.rtf.toFixed(2)} · пик ${dualReports.fast.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
-            <Text style={s.text}>{`Экономный: загрузка ${dualReports.light.load.loadMs.toFixed(0)} мс · RTF ${dualReports.light.rtf.toFixed(2)} · пик ${dualReports.light.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
+            <Text style={s.text}>{`Быстрый: загрузка ${dualReports.fast.loadMs.toFixed(0)} мс · RTF ${dualReports.fast.rtf.toFixed(2)} · пик ${dualReports.fast.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
+            <Text style={s.text}>{`Экономный: загрузка ${dualReports.light.loadMs.toFixed(0)} мс · RTF ${dualReports.light.rtf.toFixed(2)} · пик ${dualReports.light.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
             <Btn title="Отправить отчёт в Telegram · @Aadzen" onPress={shareDualReport} disabled={disabled} kind="soft" />
           </>
         ) : null}
-        <Text style={s.dim}>Для достоверного фонового тестирования нужен отдельный Android foreground service; текущая версия автоматически выполняет оба режима при активном процессе приложения.</Text>
+        <Text style={s.dim}>Android foreground service поддерживает работу после сворачивания. Открытие отчёта и прогресс обновятся при возвращении в приложение. Не выключайте процесс принудительно.</Text>
       </View>
 
       <Text style={s.h2}>Полный замер</Text>
