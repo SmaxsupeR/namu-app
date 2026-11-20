@@ -56,6 +56,7 @@ export declare class NamuTtsNative extends NativeModule<Events> {
   writeTextAtomic(file: string, text: string): Promise<boolean>;
   moveDir(from: string, to: string): Promise<boolean>;
   deleteTree(file: string): Promise<boolean>;
+  copyFile(from: string, to: string): Promise<number>;
   gunzip(from: string, to: string): Promise<number>;
   listDir(dir: string): Promise<string[]>;
   dirSize(dir: string): Promise<number>;

@@ -24,7 +24,7 @@ function world(opts: { version?: number; freeMb?: number } = {}) {
   server.set(VOICES_INDEX_URL, JSON.stringify(catalog));
 
   const disk = new Map<string, string>();
-  const log = { downloads: [] as string[], ranges: [] as number[], cutAfter: -1, corruptOnce: new Set<string>(), cancelled: false };
+  const log = { copies: [] as string[], downloads: [] as string[], ranges: [] as number[], cutAfter: -1, corruptOnce: new Set<string>(), cancelled: false };
   const io: PackIO = {
     fileSize: async (f) => (disk.has(f) ? disk.get(f)!.length : -1),
     exists: async (f) => disk.has(f) || [...disk.keys()].some((k) => k.startsWith(f + '/')),
@@ -35,6 +35,11 @@ function world(opts: { version?: number; freeMb?: number } = {}) {
         disk.set(b + k.slice(a.length), disk.get(k)!);
         disk.delete(k);
       }
+    },
+    copyFile: async (a, b) => {
+      log.copies.push(a);
+      if (!disk.has(a)) throw new Error('missing');
+      disk.set(b, disk.get(a)!);
     },
     deleteTree: async (f) => {
       for (const k of [...disk.keys()]) if (k === f || k.startsWith(f + '/')) disk.delete(k);
@@ -71,7 +76,17 @@ function world(opts: { version?: number; freeMb?: number } = {}) {
     return JSON.parse(b);
   };
   const pm = createPackManager(io, ROOT, fetchJson);
-  return { pm, disk, server, log, files, manifest };
+  /** Publishes a new version in which some files changed. */
+  const publish = (version: number, changed: Record<string, string>) => {
+    for (const [p, c] of Object.entries(changed)) {
+      files[p] = c;
+      server.set(BASE + p, c);
+    }
+    const m = { ...manifest, files: Object.entries(files).map(([path, c]) => ({ path, sha256: hash(c), size: c.length })) };
+    server.set(BASE + 'manifest.json', JSON.stringify(m));
+    server.set(VOICES_INDEX_URL, server.get(VOICES_INDEX_URL)!.replace(/"version":\d+/, `"version":${version}`));
+  };
+  return { pm, disk, server, log, files, manifest, publish };
 }
 
 describe('voice pack install', () => {
@@ -155,9 +170,9 @@ describe('voice pack install', () => {
     const w = world();
     const [v1] = await w.pm.catalog();
     await w.pm.install(v1);
-    w.server.set(VOICES_INDEX_URL, w.server.get(VOICES_INDEX_URL)!.replace('"version":1', '"version":2'));
+    w.publish(2, { 'onnx/vocoder.onnx': 'new vocoder '.repeat(30), 'onnx/text_encoder.onnx': 'new encoder '.repeat(30) });
     const [v2] = await w.pm.catalog();
-    w.log.cutAfter = w.log.downloads.length + 2;
+    w.log.cutAfter = w.log.downloads.length + 1;
     await expect(w.pm.install(v2)).rejects.toBeTruthy();
     const mid = await w.pm.state();
     expect(mid.status === 'ready' && mid.pack.version).toBe(1);
@@ -166,6 +181,21 @@ describe('voice pack install', () => {
     const s = await w.pm.state();
     expect(s.status === 'ready' && s.pack.version).toBe(2);
     expect([...w.disk.keys()].some((k) => k.includes('int8w-v1/'))).toBe(false);
+  });
+
+  it('downloads only the files that changed in an update', async () => {
+    const w = world();
+    const [v1] = await w.pm.catalog();
+    await w.pm.install(v1);
+    const before = w.log.downloads.length;
+    w.publish(2, { 'onnx/vocoder.onnx': 'fp16 vocoder '.repeat(40) });
+    const [v2] = await w.pm.catalog();
+    await w.pm.install(v2);
+    expect(w.log.downloads.slice(before)).toEqual(['onnx/vocoder.onnx']);
+    expect(w.log.copies.length).toBe(Object.keys(w.files).length - 1);
+    expect(await w.pm.verify()).toEqual([]);
+    const s = await w.pm.state();
+    expect(s.status === 'ready' && s.pack.version).toBe(2);
   });
 
   it('reports a damaged pack and removes it on request', async () => {

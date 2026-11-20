@@ -212,6 +212,21 @@ class NamuTtsModule : Module() {
       out.length().toDouble()
     }
 
+    /** Copies a file through a temporary file and a rename (reusing unchanged pack files on update). */
+    AsyncFunction("copyFile") { from: String, to: String ->
+      val a = path(from)
+      val b = path(to)
+      if (!a.isFile) throw ModelFileMissing(a.name)
+      b.parentFile?.mkdirs()
+      val tmp = File(b.parentFile, "${b.name}.part")
+      a.inputStream().use { input -> java.io.FileOutputStream(tmp).use { o -> input.copyTo(o, 1 shl 20); o.fd.sync() } }
+      if (!tmp.renameTo(b)) {
+        tmp.delete()
+        throw CodedException("E_IO", "Could not move ${b.name}", null)
+      }
+      b.length().toDouble()
+    }
+
     AsyncFunction("deleteTree") { file: String -> path(file).deleteRecursively() }
 
     AsyncFunction("listDir") { dir: String -> path(dir).list()?.toList() ?: emptyList<String>() }
@@ -256,7 +271,7 @@ class NamuTtsModule : Module() {
         try {
           val style = styles.getOrPut(voice) { e.loadStyle(File(dir, "voice_styles/$voice.json")) }
           val r = e.synth(text, style, steps, speed, seed.toLong())
-          Wav.write(path(out), r.audio, r.sampleRate)
+          Wav.write(path(out), Loudness.normalize(r.audio, r.sampleRate), r.sampleRate)
           mapOf("audioSec" to r.audio.size.toDouble() / r.sampleRate, "totalMs" to r.totalMs)
         } catch (err: OutOfMemoryError) {
           throw OutOfMemory(err)

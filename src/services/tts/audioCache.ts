@@ -10,7 +10,8 @@ import type { Db } from '../../db/schema';
 import { normalizeNumbers } from './numbers';
 import { SYNTH } from './supertonicEngine';
 
-export const CACHE_FORMAT = 'namu-tts-cache-1';
+// 2: loudness-normalized audio (all earlier recordings are made again).
+export const CACHE_FORMAT = 'namu-tts-cache-2';
 export const ENGINE_NAME = 'supertonic-3';
 /** Default size limit; eviction brings the cache down to 90 % of it. */
 export const CACHE_LIMIT_BYTES = 250 * 1024 * 1024;

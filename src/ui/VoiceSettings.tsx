@@ -70,7 +70,8 @@ function QueueCard({ prepareAll, onPrepareAll }: { prepareAll: boolean; onPrepar
 export function VoiceSettings({ settings, update }: { settings: Settings; update: <K extends keyof Settings>(key: K, value: Settings[K]) => void }) {
   const t = useTheme();
   const tr = useT();
-  const { state, offerBytes, progress, error, busy } = useVoicePack();
+  const { state, offerBytes, offerVersion, progress, error, busy } = useVoicePack();
+  const hasUpdate = state?.status === 'ready' && offerVersion !== null && offerVersion > state.pack.version;
   const [previewing, setPreviewing] = useState(false);
 
   useEffect(() => {
@@ -85,6 +86,13 @@ export function VoiceSettings({ settings, update }: { settings: Settings; update
     Alert.alert(tr('voiceConsentTitle'), tr('voiceConsentText', { mb: size ? mb(size) : '≈110' }), [
       { text: tr('cancel'), style: 'cancel' },
       { text: tr('voiceDownload'), onPress: () => downloadVoicePack() },
+    ]);
+  };
+
+  const askUpdate = () => {
+    Alert.alert(tr('voiceUpdateTitle'), tr('voiceUpdateText'), [
+      { text: tr('cancel'), style: 'cancel' },
+      { text: tr('voiceUpdate'), onPress: () => downloadVoicePack() },
     ]);
   };
 
@@ -154,6 +162,13 @@ export function VoiceSettings({ settings, update }: { settings: Settings; update
         {neuralSupported && state?.status === 'ready' && busy !== 'download' ? (
           <>
             <Body dim>{tr('voiceInstalled', { mb: mb(state.pack.bytes) })}</Body>
+            {hasUpdate ? (
+              <View style={[styles.update, { backgroundColor: t.primarySoft }]}>
+                <Text style={{ color: t.text, fontWeight: '700' }}>{tr('voiceUpdateTitle')}</Text>
+                <Body dim>{tr('voiceUpdateHint')}</Body>
+                <Btn small icon="download" title={tr('voiceUpdate')} onPress={askUpdate} />
+              </View>
+            ) : null}
             <Text style={[styles.label, { color: t.text }]}>{tr('voiceChoose')}</Text>
             <View style={styles.chips}>
               {VOICES.filter((v) => state.pack.voices.includes(v)).map((v) => (
@@ -179,5 +194,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   between: { justifyContent: 'space-between', minHeight: 44 },
   label: { fontSize: 16, fontWeight: '600' },
+  update: { gap: space.sm, padding: space.md, borderRadius: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
 });

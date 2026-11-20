@@ -9,12 +9,14 @@ interface VoicePackStore {
   state: PackState | null;
   /** Size offered by the catalog, in bytes (known after the first check). */
   offerBytes: number | null;
+  /** Newest pack version in the catalog. */
+  offerVersion: number | null;
   progress: DownloadProgress | null;
   error: InstallErrorCode | null;
   busy: 'download' | 'remove' | null;
 }
 
-export const useVoicePack = create<VoicePackStore>(() => ({ state: null, offerBytes: null, progress: null, error: null, busy: null }));
+export const useVoicePack = create<VoicePackStore>(() => ({ state: null, offerBytes: null, offerVersion: null, progress: null, error: null, busy: null }));
 
 const set = useVoicePack.setState;
 
@@ -24,10 +26,10 @@ export async function refreshVoicePack(): Promise<void> {
 
 /** Looks up the pack size in the catalog (needs internet; silent if offline). */
 export async function loadOffer(): Promise<void> {
-  if (!voicePacks || useVoicePack.getState().offerBytes !== null) return;
+  if (!voicePacks || useVoicePack.getState().offerVersion !== null) return;
   try {
     const [c] = await voicePacks.catalog();
-    if (c) set({ offerBytes: c.size });
+    if (c) set({ offerBytes: c.size, offerVersion: c.version });
   } catch {
     // Offline: the button still works and reports the error when pressed.
   }
@@ -40,7 +42,7 @@ export async function downloadVoicePack(): Promise<void> {
   try {
     const [c] = await voicePacks.catalog();
     if (!c) throw new InstallError('no_pack');
-    set({ offerBytes: c.size });
+    set({ offerBytes: c.size, offerVersion: c.version });
     await voicePacks.install(c, (progress) => set({ progress }));
     await packChanged();
   } catch (e) {

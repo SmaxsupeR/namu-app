@@ -31,6 +31,7 @@ function nativeIO(): PackIO {
     writeTextAtomic: n.writeTextAtomic,
     moveDir: n.moveDir,
     deleteTree: n.deleteTree,
+    copyFile: n.copyFile,
     listDir: n.listDir,
     sha256: n.sha256,
     freeSpaceMb: n.freeSpaceMb,

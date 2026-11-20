@@ -26,6 +26,8 @@ export interface PackIO {
   writeTextAtomic(file: string, text: string): Promise<unknown>;
   moveDir(from: string, to: string): Promise<unknown>;
   deleteTree(file: string): Promise<unknown>;
+  /** Copies a file (atomically) — used to reuse unchanged files of the installed pack. */
+  copyFile(from: string, to: string): Promise<unknown>;
   listDir(dir: string): Promise<string[]>;
   sha256(file: string): Promise<string>;
   freeSpaceMb(dir: string): Promise<number>;
@@ -143,11 +145,31 @@ export function createPackManager(io: PackIO, root: string, fetchJson: FetchJson
     if (freeMb * 1024 * 1024 < toFetch + SPARE_MB * 1024 * 1024) throw new InstallError('no_space', `${Math.round(freeMb)} MB free`);
 
     const doneBefore = () => [...sizes.values()].reduce((a, b) => a + b, 0);
+    // An update reuses files that did not change instead of downloading them again.
+    const current = await state();
+    const oldFiles = new Map<string, string>();
+    if (current.status === 'ready') {
+      const old = await readManifest(current.dir, current.pack.id);
+      for (const f of old?.files ?? []) oldFiles.set(`${f.path}\n${f.sha256}`, join(current.dir, f.path));
+    }
     for (const f of manifest.files) {
       if (stopping) throw new InstallError('cancelled');
       const dest = join(partial, f.path);
       onProgress({ done: doneBefore(), total, toFetch, file: f.path, phase: 'verify' });
       if (sizes.get(f.path) === f.size && (await io.sha256(dest)) === f.sha256) continue;
+      const reuse = oldFiles.get(`${f.path}\n${f.sha256}`);
+      if (reuse) {
+        try {
+          await io.copyFile(reuse, dest);
+          if (await fileOk(dest, f.size, f.sha256)) {
+            sizes.set(f.path, f.size);
+            continue;
+          }
+        } catch {
+          // Fall back to downloading this file.
+        }
+        await io.deleteTree(dest);
+      }
       let ok = false;
       for (let attempt = 0; attempt < 2 && !ok; attempt++) {
         if (attempt > 0) {
