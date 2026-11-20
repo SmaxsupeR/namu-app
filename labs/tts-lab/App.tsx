@@ -527,7 +527,7 @@ function Lab() {
             <View style={s.track}><View style={[s.fill, { width: `${Math.min(100, 100 * progress.done / Math.max(1, progress.total))}%` }]} /></View>
           </View>
         ) : null}
-        <Btn title={autoStatus === 'running' ? 'Тестирование в фоне…' : 'Запустить оба теста'} onPress={autoBench} disabled={disabled || autoStatus === 'running' || !pack || !device} />
+        <Btn title={autoStatus === 'running' ? 'Тестирование в фоне…' : 'Запустить оба теста'} onPress={autoBench} disabled={disabled || !pack || !device} />
         {autoStatus === 'running' ? <Btn title="Остановить тест" onPress={cancelAutoBench} kind="danger" /> : null}
         {!pack ? <Text style={s.dim}>Сначала установите голосовой пакет из списка выше.</Text> : null}
         {dualReports ? (
