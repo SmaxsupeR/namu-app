@@ -1,13 +1,12 @@
 // Namu TTS Lab: an experimental, separate app for measuring Supertonic 3 on a real phone.
 // It does not touch the main app or its text-to-speech.
 import * as Clipboard from 'expo-clipboard';
-import { File, Paths } from 'expo-file-system';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { OnnxTts, type DeviceInfo, type LoadResult, type Memory, type SynthResult } from './modules/onnx-tts';
-import { deletePack, downloadCatalogPack, downloadOriginal, fetchCatalog, importPack, installedPacks, ORIGINAL, packPath, packSize, verifyPack, voicesOf, type CatalogPack, type PackInfo, type Progress } from './src/packs';
+import { deletePack, downloadCatalogPack, fetchCatalog, installedPacks, packPath, packSize, verifyPack, voicesOf, type CatalogPack, type PackInfo, type Progress } from './src/packs';
 import { TEST_SET } from './src/testSet';
 
 const C = { bg: '#F6F7F4', card: '#FFFFFF', text: '#17201B', dim: '#5F6B64', border: '#DFE4DD', primary: '#2F9E6E', soft: '#DDF3E8', danger: '#D64545' };
@@ -128,21 +127,6 @@ function Lab() {
 
   const pack = packs.find((p) => p.id === packId) ?? null;
 
-  const download = async () => {
-    stop.current = false;
-    setBusy('download');
-    try {
-      const r = await downloadOriginal(setProgress, () => stop.current);
-      note(r.ok ? 'Оригинал скачан и проверен' : `Скачано с ошибками: нет ${r.missing.length}, повреждено ${r.corrupt.length}`);
-      refresh();
-    } catch (e) {
-      fail(e);
-    } finally {
-      setBusy(null);
-      setProgress(null);
-    }
-  };
-
   const downloadFromCatalog = async (c: CatalogPack) => {
     stop.current = false;
     setBusy('download');
@@ -156,29 +140,6 @@ function Lab() {
     } finally {
       setBusy(null);
       setProgress(null);
-    }
-  };
-
-  const importZip = async () => {
-    try {
-      const picked = await File.pickFileAsync({});
-      if (picked.canceled) return;
-      setBusy('import');
-      // The picker may give a content:// address; copy into the app's cache to get a real file.
-      const copy = new File(Paths.cache, 'import.zip');
-      if (copy.exists) copy.delete();
-      picked.result.copy(copy);
-      const info = await importPack(copy.uri);
-      copy.delete();
-      note(`Импортирован пакет ${info.name}`);
-      const v = await verifyPack(info);
-      note(v.ok ? 'Целостность в порядке' : `Повреждён: нет ${v.missing.join(', ')}; ошибки ${v.corrupt.join(', ')}`);
-      refresh();
-      setPackId(info.id);
-    } catch (e) {
-      fail(e);
-    } finally {
-      setBusy(null);
     }
   };
 
@@ -398,6 +359,16 @@ function Lab() {
     note('Запрошена остановка после текущего синтеза');
   };
 
+  const suggestUninstall = () => {
+    Alert.alert('Тестирование завершено',
+      'Удалить Namu TTS Lab вместе со скачанными моделями и внутренними данными? Убедитесь, что отчёт уже отправлен.',
+      [
+        { text: 'Оставить', style: 'cancel' },
+        { text: 'Перейти к удалению', style: 'destructive',
+          onPress: () => { OnnxTts.requestUninstall().catch(fail); } },
+      ]);
+  };
+
   const shareDualReport = async () => {
     if (!dualReports) return;
     const json = JSON.stringify({
@@ -410,8 +381,8 @@ function Lab() {
       await Clipboard.setStringAsync(json);
       Alert.alert('Отчёт скопирован', 'Откроется чат @Aadzen в Telegram. Вставьте скопированный отчёт и подтвердите отправку.', [
         { text: 'Отмена', style: 'cancel' },
-        { text: 'Открыть @Aadzen', onPress: () => { Linking.openURL('https://t.me/Aadzen').catch(fail); } },
-        { text: 'Поделиться…', onPress: () => { Share.share({ message: json }).catch(fail); } },
+        { text: 'Открыть @Aadzen', onPress: () => { Linking.openURL('https://t.me/Aadzen').then(suggestUninstall).catch(fail); } },
+        { text: 'Поделиться…', onPress: () => { Share.share({ message: json }).then((r) => { if (r.action === Share.sharedAction) suggestUninstall(); }).catch(fail); } },
       ]);
     } catch (e) { fail(e); }
   };
@@ -446,7 +417,7 @@ function Lab() {
 
       <Text style={s.h2}>Голосовые пакеты</Text>
       <View style={s.card}>
-        {packs.length === 0 ? <Text style={s.dim}>Пакетов нет. Скачайте оригинал или импортируйте сжатый пакет (.zip).</Text> : null}
+        {packs.length === 0 ? <Text style={s.dim}>Для теста понадобится голосовой пакет. Выберите подготовленную модель ниже.</Text> : null}
         <View style={s.row}>
           {packs.map((p) => (
             <Chip key={p.id} label={`${p.name} · ${mb(packSize(p))}`} on={p.id === packId} onPress={() => setPackId(p.id)} disabled={disabled} />
@@ -455,11 +426,9 @@ function Lab() {
         {progress ? <Text style={s.dim}>{progress.total ? `${progress.file}: ${mb(progress.done)} из ${mb(progress.total)}` : progress.file}</Text> : null}
         {catalog === null ? <Text style={s.dim}>Загружаю каталог пакетов…</Text> : null}
         {catalog?.map((c) => (
-          <Btn key={c.id} title={`Скачать «${c.name}» (${mb(c.size)}) с GitHub`} onPress={() => downloadFromCatalog(c)} disabled={disabled} />
+          <Btn key={c.id} title={`Установить модель «${c.name}» (${mb(c.size)})`} onPress={() => downloadFromCatalog(c)} disabled={disabled} />
         ))}
-        <Btn title={`Скачать оригинал (${mb(packSize(ORIGINAL))}) с Hugging Face`} onPress={download} disabled={disabled} kind="soft" />
         {busy === 'download' ? <Btn title="Остановить скачивание" onPress={() => (stop.current = true)} kind="danger" /> : null}
-        <Btn title="Импортировать пакет (.zip)" onPress={importZip} disabled={disabled} kind="soft" />
         <View style={s.row}>
           <Btn title="Проверить целостность" onPress={verify} disabled={disabled || !pack} kind="soft" />
           <Btn title="Удалить" onPress={remove} disabled={disabled || !pack} kind="danger" />
@@ -530,12 +499,13 @@ function Lab() {
         ) : null}
         <Btn title={autoStatus === 'running' ? 'Тестирование в фоне…' : 'Запустить оба теста'} onPress={autoBench} disabled={disabled || autoStatus === 'running' || !pack || !device} />
         {autoStatus === 'running' ? <Btn title="Остановить тест" onPress={cancelAutoBench} kind="danger" /> : null}
-        {!pack ? <Text style={s.dim}>Сначала скачайте или импортируйте голосовой пакет.</Text> : null}
+        {!pack ? <Text style={s.dim}>Сначала установите голосовой пакет из списка выше.</Text> : null}
         {dualReports ? (
           <>
             <Text style={s.text}>{`Быстрый: загрузка ${dualReports.fast.loadMs.toFixed(0)} мс · RTF ${dualReports.fast.rtf.toFixed(2)} · пик ${dualReports.fast.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
             <Text style={s.text}>{`Экономный: загрузка ${dualReports.light.loadMs.toFixed(0)} мс · RTF ${dualReports.light.rtf.toFixed(2)} · пик ${dualReports.light.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
             <Btn title="Отправить отчёт в Telegram · @Aadzen" onPress={shareDualReport} disabled={disabled} kind="soft" />
+            <Btn title="Удалить приложение и модели" onPress={suggestUninstall} disabled={disabled} kind="danger" />
           </>
         ) : null}
         <Text style={s.dim}>Android foreground service поддерживает работу после сворачивания. Открытие отчёта и прогресс обновятся при возвращении в приложение. Не выключайте процесс принудительно.</Text>
