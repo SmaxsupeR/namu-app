@@ -1,6 +1,8 @@
 // Namu TTS Lab: an experimental, separate app for measuring Supertonic 3 on a real phone.
 // It does not touch the main app or its text-to-speech.
 import * as Clipboard from 'expo-clipboard';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
@@ -377,7 +379,7 @@ function Lab() {
       if (state === 'active' && pendingTelegramReturn.current && wasBackgrounded.current) {
         pendingTelegramReturn.current = false;
         wasBackgrounded.current = false;
-        Alert.alert('Отчёт отправлен?', 'Удалять приложение стоит только после того, как вы убедились, что файл или текст отчёта действительно отправлен в @Aadzen.', [
+        Alert.alert('Отчёт отправлен?', 'Удаляйте приложение только после того, как убедились, что файл namu-tts-report.json действительно отправлен в @Aadzen.', [
           { text: 'Пока нет', style: 'cancel' },
           { text: 'Да, отправлен', onPress: suggestUninstall },
         ]);
@@ -390,18 +392,27 @@ function Lab() {
     if (!dualReports) return;
     const json = JSON.stringify({
       schema: 'namu-tts-lab-dual-benchmark-v1',
-      device, recipient: '@Aadzen',
+      device,
       createdAt: new Date().toISOString(),
-      fast: dualReports.fast, light: dualReports.light,
+      fast: dualReports.fast,
+      light: dualReports.light,
     }, null, 2);
     try {
-      await Clipboard.setStringAsync(json);
-      Alert.alert('Отчёт скопирован', 'Откроется чат @Aadzen в Telegram. Вставьте скопированный отчёт и подтвердите отправку.', [
-        { text: 'Отмена', style: 'cancel' },
-        { text: 'Открыть @Aadzen', onPress: () => { pendingTelegramReturn.current = true; Linking.openURL('https://t.me/Aadzen').catch((e) => { pendingTelegramReturn.current = false; fail(e); }); } },
-        { text: 'Поделиться…', onPress: () => { Share.share({ message: json }).catch(fail); } },
-      ]);
-    } catch (e) { fail(e); }
+      const file = new File(Paths.cache, 'namu-tts-report.json');
+      if (file.exists) file.delete();
+      file.create();
+      file.write(json);
+      if (!(await Sharing.isAvailableAsync())) throw new Error('Системное меню отправки недоступно');
+      pendingTelegramReturn.current = true;
+      await Sharing.shareAsync(file.uri, {
+        mimeType: 'application/json',
+        dialogTitle: 'Выберите Telegram и отправьте отчёт в @Aadzen',
+        UTI: 'public.json',
+      });
+    } catch (e) {
+      pendingTelegramReturn.current = false;
+      fail(e);
+    }
   };
 
   const shareReport = () => {
@@ -521,7 +532,7 @@ function Lab() {
           <>
             <Text style={s.text}>{`Быстрый: загрузка ${dualReports.fast.loadMs.toFixed(0)} мс · RTF ${dualReports.fast.rtf.toFixed(2)} · пик ${dualReports.fast.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
             <Text style={s.text}>{`Экономный: загрузка ${dualReports.light.loadMs.toFixed(0)} мс · RTF ${dualReports.light.rtf.toFixed(2)} · пик ${dualReports.light.memoryAfterRounds.peakMb.toFixed(0)} МБ`}</Text>
-            <Btn title="Отправить отчёт в Telegram · @Aadzen" onPress={shareDualReport} disabled={disabled} kind="soft" />
+            <Btn title="Поделиться JSON-отчётом · @Aadzen" onPress={shareDualReport} disabled={disabled} kind="soft" />
             <Btn title="Удалить приложение и модели" onPress={suggestUninstall} disabled={disabled} kind="danger" />
           </>
         ) : null}
