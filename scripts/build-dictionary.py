@@ -4,7 +4,11 @@ XML of 한국어기초사전 (Basic Korean Dictionary, National Institute of Kor
 Language), licensed CC BY-SA 2.0 KR. The XML is mirrored at
 https://github.com/spellcheck-ko/korean-dict-nikl-krdict.
 
-Usage: build-dictionary.py <xml dir> <out.db> <source commit>
+Usage: build-dictionary.py <xml dir> <out.db> <source commit> [--full]
+
+Without --full: the compact dictionary bundled with the app.
+With --full: the downloadable full dictionary, which adds every example
+(phrases, sentences, dialogues), related words and inflected forms.
 
 Kept per entry: headword, homonym number, part of speech, learner level,
 hanja origin, pronunciation; per sense: the Russian equivalent and its
@@ -15,8 +19,13 @@ import glob, io, os, re, sqlite3, sys, unicodedata
 import xml.etree.ElementTree as ET
 
 src, out, commit = sys.argv[1], sys.argv[2], sys.argv[3]
+FULL = '--full' in sys.argv[4:]
 LEVELS = {'초급': 1, '중급': 2, '고급': 3}
 UNITS = {'단어': 'word', '구': 'phrase', '관용구': 'idiom', '속담': 'proverb', '문법‧표현': 'grammar'}
+
+RELATIONS = {'유의어': 'synonym', '반대말': 'antonym', '참고어': 'see', '파생어': 'derived', '가봐라': 'see', '준말': 'short', '본말': 'full',
+             '높임말': 'honorific', '낮춤말': 'humble', '작은말': 'small', '큰말': 'big', '여린말': 'soft', '센말': 'strong'}
+EXAMPLE_KINDS = {'구': 0, '문장': 1, '대화': 2}
 
 def feats(el):
     return {f.get('att'): f.get('val') for f in el.findall('feat')}
@@ -45,7 +54,10 @@ CREATE TABLE words (
   pos TEXT NOT NULL,               -- Korean part-of-speech name
   level INTEGER NOT NULL,          -- 1 beginner, 2 intermediate, 3 advanced, 0 none
   origin TEXT,                     -- hanja or source word
-  pron TEXT
+  pron TEXT,
+  topic TEXT,                      -- semantic category, e.g. "자연 > 지형"
+  subject TEXT,                    -- subject category, e.g. "직업과 진로"
+  note TEXT                        -- usage annotation
 );
 CREATE TABLE senses (
   id INTEGER PRIMARY KEY,
@@ -54,9 +66,13 @@ CREATE TABLE senses (
   ru TEXT NOT NULL,                -- Russian equivalent, e.g. "школа"
   ru_def TEXT,                     -- Russian explanation
   ko_def TEXT,
-  example TEXT
+  example TEXT,                    -- one short sentence
+  pattern TEXT                     -- sentence pattern, e.g. "1이 2를 가감하다"
 );
 -- Russian search terms: every equivalent ("старшая школа", exact = 1) and its longer words ("школа", exact = 0).
+CREATE TABLE examples (sense_id INTEGER NOT NULL, kind INTEGER NOT NULL, text TEXT NOT NULL);  -- full only; kind 0 phrase, 1 sentence, 2 dialogue (lines joined by a newline)
+CREATE TABLE relations (word_id INTEGER NOT NULL, sense_id INTEGER, kind TEXT NOT NULL, word TEXT NOT NULL, hom INTEGER NOT NULL);  -- full only
+CREATE TABLE forms (word_id INTEGER NOT NULL, kind TEXT NOT NULL, form TEXT NOT NULL, pron TEXT);  -- full only
 CREATE TABLE ru_index (term TEXT NOT NULL, sense_id INTEGER NOT NULL, exact INTEGER NOT NULL, PRIMARY KEY (term, sense_id)) WITHOUT ROWID;
 ''')
 n_words = n_senses = 0
@@ -87,7 +103,21 @@ for path in sorted(glob.glob(os.path.join(src, '*.xml')), key=lambda p: int(re.s
                 if xf.get('type') == '문장' and xf.get('example') and len(xf['example']) <= 60:
                     example = clean(xf['example'])
                     break
-            senses.append((i, ru, ru_def or None, clean(sf.get('definition')) or None, example))
+            exs = []
+            if FULL:
+                for ex in s.findall('SenseExample'):
+                    xf = ex.findall('feat')
+                    kind = next((EXAMPLE_KINDS.get(x.get('val')) for x in xf if x.get('att') == 'type'), None)
+                    lines = [clean(x.get('val')) for x in xf if x.get('att') == 'example' and x.get('val')]
+                    if kind is not None and lines:
+                        exs.append((kind, '\n'.join(lines)))
+            rels = []
+            if FULL:
+                for r in s.findall('SenseRelation'):
+                    rf = feats(r)
+                    if rf.get('type') in RELATIONS and rf.get('lemma'):
+                        rels.append((RELATIONS[rf['type']], clean(rf['lemma']), int(rf.get('homonymNumber') or 0)))
+            senses.append((i, ru, ru_def or None, clean(sf.get('definition')) or None, example, clean(sf.get('syntacticPattern')) or None, exs, rels))
         if word and senses:
             pron = None
             for wf in el.findall('WordForm'):
@@ -95,12 +125,24 @@ for path in sorted(glob.glob(os.path.join(src, '*.xml')), key=lambda p: int(re.s
                 if pf.get('type') == '발음' and pf.get('pronunciation'):
                     pron = clean(pf['pronunciation'])
                     break
-            wid = db.execute('INSERT INTO words (src_id, word, hom, unit, pos, level, origin, pron) VALUES (?,?,?,?,?,?,?,?)', (int(el.get('val')), word, int(f.get('homonym_number') or 0), unit, f.get('partOfSpeech') or '',
-                                                                   LEVELS.get(f.get('vocabularyLevel'), 0), clean(f.get('origin')) or None, pron)).lastrowid
+            wid = db.execute('INSERT INTO words (src_id, word, hom, unit, pos, level, origin, pron, topic, subject, note) VALUES (?,?,?,?,?,?,?,?,?,?,?)', (int(el.get('val')), word, int(f.get('homonym_number') or 0), unit, f.get('partOfSpeech') or '',
+                                                                   LEVELS.get(f.get('vocabularyLevel'), 0), clean(f.get('origin')) or None, pron,
+                                                                   clean(f.get('semanticCategory')) or None, clean(f.get('subjectCategiory')) or None, clean(f.get('annotation')) or None)).lastrowid
             n_words += 1
-            for (i, ru, ru_def, ko_def, example) in senses:
-                cur = db.execute('INSERT INTO senses (word_id, n, ru, ru_def, ko_def, example) VALUES (?,?,?,?,?,?)', (wid, i, ru, ru_def, ko_def, example))
+            if FULL:
+                for wf in el.findall('WordForm'):
+                    pf = feats(wf)
+                    if pf.get('type') == '활용' and pf.get('writtenForm'):
+                        db.execute('INSERT INTO forms VALUES (?,?,?,?)', (wid, 'inflection', clean(pf['writtenForm']), clean(pf.get('pronunciation')) or None))
+                for r in el.findall('RelatedForm'):
+                    rf = feats(r)
+                    if rf.get('type') in RELATIONS and rf.get('writtenForm'):
+                        db.execute('INSERT INTO relations VALUES (?,?,?,?,?)', (wid, None, RELATIONS[rf['type']], clean(rf['writtenForm']), 0))
+            for (i, ru, ru_def, ko_def, example, pattern, exs, rels) in senses:
+                cur = db.execute('INSERT INTO senses (word_id, n, ru, ru_def, ko_def, example, pattern) VALUES (?,?,?,?,?,?,?)', (wid, i, ru, ru_def, ko_def, example, pattern))
                 sid = cur.lastrowid
+                db.executemany('INSERT INTO examples VALUES (?,?,?)', [(sid, k, t) for k, t in exs])
+                db.executemany('INSERT INTO relations VALUES (?,?,?,?,?)', [(wid, sid, k, w, h) for k, w, h in rels])
                 n_senses += 1
                 terms = set()
                 for part in re.split(r'[;,]', ru):
@@ -119,13 +161,18 @@ for path in sorted(glob.glob(os.path.join(src, '*.xml')), key=lambda p: int(re.s
 db.executescript('''
 CREATE INDEX ix_words_word ON words(word);
 CREATE INDEX ix_senses_word ON senses(word_id, n);
+CREATE INDEX ix_words_pos ON words(pos, level);
+CREATE INDEX ix_examples_sense ON examples(sense_id);
+CREATE INDEX ix_relations_word ON relations(word_id);
+CREATE INDEX ix_forms_word ON forms(word_id);
 ''')
 db.executemany('INSERT INTO meta VALUES (?,?)', [
-    ('format', '1'),
+    ('format', '2'),
+    ('edition', 'full' if FULL else 'compact'),
     ('source', '한국어기초사전 (Basic Korean Dictionary), National Institute of Korean Language, https://krdict.korean.go.kr'),
     ('license', 'CC BY-SA 2.0 KR'),
     ('mirror', f'https://github.com/spellcheck-ko/korean-dict-nikl-krdict@{commit}'),
-    ('changes', 'Converted to SQLite by Namu; only Russian equivalents, Korean definitions and one short example per sense kept; audio links removed.'),
+    ('changes', 'Converted to SQLite by Namu; equivalents in languages other than Russian, senses without a Russian equivalent, pictures and audio links removed' + ('' if FULL else '; only one short example per sense kept') + '.'),
     ('words', str(n_words)),
     ('senses', str(n_senses)),
 ])

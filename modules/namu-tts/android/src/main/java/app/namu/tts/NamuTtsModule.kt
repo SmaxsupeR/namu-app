@@ -176,6 +176,24 @@ class NamuTtsModule : Module() {
       true
     }
 
+    /** Unpacks a .gz file through a temporary file and a rename; returns the unpacked size. */
+    AsyncFunction("gunzip") { from: String, to: String ->
+      val out = path(to)
+      out.parentFile?.mkdirs()
+      val tmp = File(out.parentFile, "${out.name}.part")
+      java.util.zip.GZIPInputStream(path(from).inputStream().buffered(1 shl 16)).use { input ->
+        java.io.FileOutputStream(tmp).use { o ->
+          input.copyTo(o, 1 shl 16)
+          o.fd.sync()
+        }
+      }
+      if (!tmp.renameTo(out)) {
+        tmp.delete()
+        throw CodedException("E_IO", "Could not move ${out.name}", null)
+      }
+      out.length().toDouble()
+    }
+
     AsyncFunction("deleteTree") { file: String -> path(file).deleteRecursively() }
 
     AsyncFunction("listDir") { dir: String -> path(dir).list()?.toList() ?: emptyList<String>() }
