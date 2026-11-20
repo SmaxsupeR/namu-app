@@ -7,6 +7,7 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.os.Build
 import android.os.Debug
+import android.util.Log
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -118,6 +119,8 @@ class OnnxTtsModule : Module() {
     }
 
     AsyncFunction("load") { dir: String, threads: Int, foldWeights: Boolean ->
+      Log.i(TTS_LOG_TAG, "Loading model: threads=$threads, foldWeights=$foldWeights")
+      if (engine != null) Log.i(TTS_LOG_TAG, "Closing previous engine before reload")
       engine?.close(); engine = null; styles.clear(); System.gc()
       val before = memory()
       val peakReset = resetPeak()

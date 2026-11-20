@@ -154,7 +154,7 @@ function Lab() {
       // The picker may give a content:// address; copy into the app's cache to get a real file.
       const copy = new File(Paths.cache, 'import.zip');
       if (copy.exists) copy.delete();
-      picked.result.copy(copy);
+      await picked.result.copy(copy);
       const info = await importPack(copy.uri);
       copy.delete();
       note(`Импортирован пакет ${info.name}`);

@@ -184,7 +184,7 @@ export async function importPack(zipUri: string): Promise<PackInfo> {
     const dest = packDir(info.id);
     if (dest.exists) dest.delete();
     packsDir().create({ intermediates: true, idempotent: true });
-    tmp.move(packsDir());
+    await tmp.move(packsDir());
     tmp.rename(info.id);
     return info;
   } catch (e) {

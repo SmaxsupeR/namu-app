@@ -1,5 +1,6 @@
 package app.namu.onnxtts
 
+import android.util.Log
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
@@ -10,6 +11,8 @@ import java.nio.FloatBuffer
 import java.nio.LongBuffer
 import java.text.Normalizer
 import java.util.Random
+
+internal const val TTS_LOG_TAG = "NamuTtsLab"
 
 /** Voice style vectors read from a voice style JSON file (voice_styles folder). */
 class VoiceStyle(val ttl: FloatArray, val ttlShape: LongArray, val dp: FloatArray, val dpShape: LongArray)
@@ -40,6 +43,7 @@ class SupertonicEngine(dir: File, threads: Int, foldWeights: Boolean) : AutoClos
   val sampleRate: Int
   private val chunkSize: Int
   private val latentDim: Int
+  private var firstSynthesis = true
 
   init {
     val onnx = File(dir, "onnx")
@@ -68,7 +72,10 @@ class SupertonicEngine(dir: File, threads: Int, foldWeights: Boolean) : AutoClos
     }
     val opened = mutableListOf<OrtSession>()
     try {
-      for (p in parts) opened += env.createSession(File(onnx, "$p.onnx").absolutePath, opts)
+      for (p in parts) {
+        Log.i(TTS_LOG_TAG, "Opening ONNX session $p")
+        opened += env.createSession(File(onnx, "$p.onnx").absolutePath, opts)
+      }
     } catch (e: Throwable) {
       opened.forEach { it.close() }
       throw e
@@ -97,6 +104,10 @@ class SupertonicEngine(dir: File, threads: Int, foldWeights: Boolean) : AutoClos
   }
 
   fun synth(text: String, style: VoiceStyle, steps: Int, speed: Double, seed: Long): SynthResult {
+    if (firstSynthesis) {
+      Log.i(TTS_LOG_TAG, "Starting first synthesis after opening ONNX sessions")
+      firstSynthesis = false
+    }
     val t0 = System.nanoTime()
     val ids = textIds(preprocess(text))
     val len = ids.size.toLong()
