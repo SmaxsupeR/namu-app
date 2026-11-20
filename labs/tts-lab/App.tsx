@@ -381,8 +381,8 @@ function Lab() {
       await Clipboard.setStringAsync(json);
       Alert.alert('Отчёт скопирован', 'Откроется чат @Aadzen в Telegram. Вставьте скопированный отчёт и подтвердите отправку.', [
         { text: 'Отмена', style: 'cancel' },
-        { text: 'Открыть @Aadzen', onPress: () => { Linking.openURL('https://t.me/Aadzen').then(suggestUninstall).catch(fail); } },
-        { text: 'Поделиться…', onPress: () => { Share.share({ message: json }).then((r) => { if (r.action === Share.sharedAction) suggestUninstall(); }).catch(fail); } },
+        { text: 'Открыть @Aadzen', onPress: () => { Linking.openURL('https://t.me/Aadzen').catch(fail); } },
+        { text: 'Поделиться…', onPress: () => { Share.share({ message: json }).catch(fail); } },
       ]);
     } catch (e) { fail(e); }
   };
@@ -423,7 +423,7 @@ function Lab() {
             <Chip key={p.id} label={`${p.name} · ${mb(packSize(p))}`} on={p.id === packId} onPress={() => setPackId(p.id)} disabled={disabled} />
           ))}
         </View>
-        {progress ? <Text style={s.dim}>{progress.total ? `${progress.file}: ${mb(progress.done)} из ${mb(progress.total)}` : progress.file}</Text> : null}
+        {progress && busy === 'download' ? <Text style={s.dim}>{progress.total ? `${progress.file}: ${mb(progress.done)} из ${mb(progress.total)}` : progress.file}</Text> : null}
         {catalog === null ? <Text style={s.dim}>Загружаю каталог пакетов…</Text> : null}
         {catalog?.map((c) => (
           <Btn key={c.id} title={`Установить модель «${c.name}» (${mb(c.size)})`} onPress={() => downloadFromCatalog(c)} disabled={disabled} />
