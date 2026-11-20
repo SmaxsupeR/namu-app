@@ -73,7 +73,6 @@ function Lab() {
 
   useEffect(() => {
     OnnxTts.deviceInfo().then(setDevice).catch(fail);
-    OnnxTts.memory().then(setMem).catch(() => {});
     refresh();
     fetchCatalog()
       .then(setCatalog)
@@ -228,7 +227,6 @@ function Lab() {
         ) : (
           <ActivityIndicator />
         )}
-        <Text style={s.dim}>{mem ? `Память приложения: ${mem.rssMb.toFixed(0)} МБ, пик ${mem.peakMb.toFixed(0)} МБ` : ''}</Text>
       </View>
 
       <Text style={s.h2}>1. Подготовка модели</Text>
