@@ -7,6 +7,7 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.os.Build
 import android.os.Debug
+import android.content.Intent
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -83,6 +84,27 @@ class OnnxTtsModule : Module() {
     }
 
     AsyncFunction("memory") { memory() }
+
+    AsyncFunction("startBenchmark") { options: String ->
+      val ctx = appContext.reactContext ?: throw CodedException("E_CONTEXT", "Android context unavailable", null)
+      val intent = Intent(ctx, TtsBenchmarkService::class.java).apply {
+        action = TtsBenchmarkService.ACTION_START
+        putExtra(TtsBenchmarkService.EXTRA_OPTIONS, options)
+      }
+      androidx.core.content.ContextCompat.startForegroundService(ctx, intent)
+      true
+    }
+
+    AsyncFunction("benchmarkStatus") {
+      TtsBenchmarkService.readStatus(appContext.reactContext!!.filesDir)
+    }
+
+    Function("cancelBenchmark") {
+      val ctx = appContext.reactContext
+      if (ctx != null) ctx.startService(Intent(ctx, TtsBenchmarkService::class.java).apply {
+        action = TtsBenchmarkService.ACTION_CANCEL
+      })
+    }
 
     AsyncFunction("sha256") { file: String ->
       val f = path(file)
