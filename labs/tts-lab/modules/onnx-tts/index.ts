@@ -63,6 +63,7 @@ declare class OnnxTtsNative extends NativeModule<OnnxTtsEvents> {
   startBenchmark(options: string): Promise<boolean>;
   benchmarkStatus(): Promise<string>;
   cancelBenchmark(): void;
+  requestUninstall(): Promise<boolean>;
 }
 
 export const OnnxTts = requireNativeModule<OnnxTtsNative>('OnnxTts');
