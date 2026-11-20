@@ -51,7 +51,7 @@ export function createSpeechService(opts: SpeechServiceOptions): SpeechService {
         if (!ready) continue;
         if (token !== generation) return { ok: false, reason: 'superseded' };
         try {
-          await engine.play({ text, rate });
+          await engine.play({ text, rate, isCurrent: () => token === generation });
         } catch (e) {
           failed = true;
           log('tts.play_failed', { engine: id, length: text.length, error: e instanceof Error ? e.message : String(e) });

@@ -13,6 +13,8 @@ export interface SpeakRequest {
   text: string;
   /** 1 is the normal speed. */
   rate: number;
+  /** False once a newer call has taken over; a slow engine checks it before it starts playing. */
+  isCurrent: () => boolean;
 }
 
 export interface TtsEngine {

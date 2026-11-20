@@ -1,0 +1,9 @@
+app.namu.tts.namu-tts-pngs-0 /home/user/namu-app/modules/namu-tts/android/build/generated/res/pngs/release
+app.namu.tts.namu-tts-updated_navigation_xml-1 /home/user/namu-app/modules/namu-tts/android/build/generated/updated_navigation_xml/release
+app.namu.tts.namu-tts-mergeReleaseResources-2 /home/user/namu-app/modules/namu-tts/android/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+app.namu.tts.namu-tts-mergeReleaseResources-3 /home/user/namu-app/modules/namu-tts/android/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+app.namu.tts.namu-tts-release-4 /home/user/namu-app/modules/namu-tts/android/build/intermediates/merged_res/release/mergeReleaseResources
+app.namu.tts.namu-tts-release-5 /home/user/namu-app/modules/namu-tts/android/build/intermediates/packaged_res/release/packageReleaseResources
+app.namu.tts.namu-tts-main-6 /home/user/namu-app/modules/namu-tts/android/src/main/res
+app.namu.tts.namu-tts-release-7 /home/user/namu-app/modules/namu-tts/android/src/release/res
+gradleHome-0 /root/.gradle

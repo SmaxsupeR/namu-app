@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import type { Direction } from '../core/learning';
 import { ENGINE_PREFERENCES, type EnginePreference } from '../services/tts/types';
+import { DEFAULT_VOICE, isVoiceId, type VoiceId } from '../services/tts/voices';
 
 export type Language = 'ru' | 'en';
 /** Which directions are practised: both, or only one of them. */
@@ -28,6 +29,8 @@ export interface Settings {
   practiceAttempts: number;
   /** Which voice speaks Korean: the neural one when installed, or the phone's own. */
   ttsEngine: EnginePreference;
+  /** Neural voice: F1–F5 (female) or M1–M5 (male). */
+  ttsVoice: VoiceId;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -43,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   detailedGrading: false,
   practiceAttempts: 3,
   ttsEngine: 'auto',
+  ttsVoice: DEFAULT_VOICE,
 };
 
 export function settingsFromPrefs(prefs: Record<string, string>): Settings {
@@ -55,6 +59,7 @@ export function settingsFromPrefs(prefs: Record<string, string>): Settings {
       if (key === 'directions' && !['both', 'ko_ru', 'ru_ko'].includes(value)) continue;
       if (key === 'answerMethod' && !['keyboard', 'self_grade'].includes(value)) continue;
       if (key === 'ttsEngine' && !ENGINE_PREFERENCES.includes(value)) continue;
+      if (key === 'ttsVoice' && !isVoiceId(value)) continue;
       if (key === 'practiceAttempts' && !(value >= 1 && value <= 10)) continue;
       (out as unknown as Record<string, unknown>)[key] = value;
     } catch {
