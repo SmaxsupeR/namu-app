@@ -1,16 +1,16 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest6563047519518846825.xml:2:13-83
-INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest6563047519518846825.xml:2:13-83
+ADDED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest8357978103025659540.xml:2:13-83
+INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest8357978103025659540.xml:2:13-83
 	package
-		INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest6563047519518846825.xml
+		INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest8357978103025659540.xml
 	xmlns:android
-		ADDED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest6563047519518846825.xml:2:23-81
+		ADDED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest8357978103025659540.xml:2:23-81
 uses-sdk
-INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest6563047519518846825.xml reason: use-sdk injection requested
-INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest6563047519518846825.xml
-INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest6563047519518846825.xml
+INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest8357978103025659540.xml reason: use-sdk injection requested
+INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest8357978103025659540.xml
+INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest8357978103025659540.xml
 	android:targetSdkVersion
-		INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest6563047519518846825.xml
+		INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest8357978103025659540.xml
 	android:minSdkVersion
-		INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest6563047519518846825.xml
+		INJECTED from /home/user/namu-app/modules/namu-tts/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest8357978103025659540.xml
