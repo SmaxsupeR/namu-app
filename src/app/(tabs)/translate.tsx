@@ -8,8 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getDictionary } from '../../dict';
 import { browse, countWords, queryKind, search, subjectCounts, type DictFilter, type DictWord } from '../../dict/lookup';
 import { topicName, TOP_TOPICS } from '../../dict/topics';
-import { Body, Btn, Field, Icon, IconBtn, Title } from '../../ui/components';
+import { Body, Btn, Chip, Field, Icon, IconBtn, Row, Title } from '../../ui/components';
 import { FilterPanel, FullDictCard, TYPE_LABEL, LEVEL_LABEL, WordRow } from '../../ui/dictUi';
+import { Conjugator, GrammarList } from '../../ui/grammarUi';
 import { useT } from '../../ui/i18n';
 import { radius, space, useTheme } from '../../ui/theme';
 
@@ -28,6 +29,8 @@ export default function Translate() {
   const [loading, setLoading] = useState(false);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [error, setError] = useState(false);
+  // The tab holds three references: the dictionary, the grammar guide and the conjugation table.
+  const [section, setSection] = useState<'words' | 'grammar' | 'conjugate'>('words');
   const request = useRef(0);
 
   const active = Object.values(filter).filter((v) => v !== undefined).length;
@@ -84,6 +87,15 @@ export default function Translate() {
   const header = (
     <View style={styles.header}>
       <Title>{tr('tabTranslate')}</Title>
+      <Row style={styles.sections}>
+        <Chip label={tr('sectionWords')} active={section === 'words'} onPress={() => setSection('words')} />
+        <Chip label={tr('sectionGrammar')} active={section === 'grammar'} onPress={() => setSection('grammar')} />
+        <Chip label={tr('sectionConjugate')} active={section === 'conjugate'} onPress={() => setSection('conjugate')} />
+      </Row>
+      {section === 'grammar' ? <GrammarList /> : null}
+      {section === 'conjugate' ? <Conjugator /> : null}
+      {section === 'words' ? (
+      <>
       <Field
         value={query}
         onChangeText={setQuery}
@@ -141,13 +153,15 @@ export default function Translate() {
           <FullDictCard />
         </>
       ) : null}
+      </>
+      ) : null}
     </View>
   );
 
   return (
     <View style={[styles.flex, { backgroundColor: t.bg }]}>
       <FlatList
-        data={items}
+        data={section === 'words' ? items : []}
         keyExtractor={(w) => String(w.id)}
         renderItem={({ item }) => <WordRow word={item} onPress={() => router.push(`/word/${item.id}`)} />}
         ListHeaderComponent={header}
@@ -171,4 +185,5 @@ const styles = StyleSheet.create({
   section: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginTop: space.sm },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   topic: { paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.md, borderWidth: 1 },
+  sections: { flexWrap: 'wrap', gap: space.sm },
 });

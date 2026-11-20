@@ -13,6 +13,9 @@ import { prepareSpeech, speakKorean } from '../../services/speech';
 import { useApp } from '../../state/store';
 import { Body, Btn, Card, Chip, Icon, IconBtn, Row, Screen } from '../../ui/components';
 import { FullDictCard, LEVEL_LABEL } from '../../ui/dictUi';
+import { conjugate } from '../../grammar/conjugate';
+import { KEY_FORMS } from '../../grammar/labels';
+import { ConjugationTable } from '../../ui/grammarUi';
 import { useT, type StringKey } from '../../ui/i18n';
 import { radius, space, useTheme } from '../../ui/theme';
 
@@ -103,6 +106,8 @@ export default function WordScreen() {
 
   if (!word) return <Screen>{null}</Screen>;
 
+  const conjKind = word.pos === '동사' || word.pos === '보조 동사' ? 'verb' : word.pos === '형용사' || word.pos === '보조 형용사' ? 'adjective' : null;
+  const conj = conjKind && word.unit === 'word' ? conjugate(headword(word), conjKind) : null;
   const meta = [POS_RU[word.pos] ?? '', word.level ? tr(LEVEL_LABEL[word.level]) : ''].filter(Boolean).join(' · ');
   const wordRelations = word.relations.filter((r) => r.senseId === null);
 
@@ -202,6 +207,13 @@ export default function WordScreen() {
         );
       })}
 
+      {conj ? (
+        <Card>
+          <Text style={[styles.h, { color: t.text }]}>{tr('conjugateTitle')}</Text>
+          <ConjugationTable c={conj} only={KEY_FORMS} />
+          <Btn kind="ghost" small icon="table" title={tr('conjugateAll')} onPress={() => router.push(`/conjugate?word=${encodeURIComponent(conj.word)}&kind=${conj.kind}`)} />
+        </Card>
+      ) : null}
       {word.forms.length ? (
         <Card>
           <Text style={[styles.h, { color: t.text }]}>{tr('forms')}</Text>
