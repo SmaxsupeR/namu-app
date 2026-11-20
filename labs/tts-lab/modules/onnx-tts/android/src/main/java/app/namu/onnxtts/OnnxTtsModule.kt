@@ -8,6 +8,8 @@ import android.media.AudioTrack
 import android.os.Build
 import android.os.Debug
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -97,6 +99,15 @@ class OnnxTtsModule : Module() {
 
     AsyncFunction("benchmarkStatus") {
       TtsBenchmarkService.readStatus(appContext.reactContext!!.filesDir)
+    }
+
+    AsyncFunction("requestUninstall") {
+      val ctx = appContext.reactContext ?: throw CodedException("E_CONTEXT", "Android context unavailable", null)
+      val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:${ctx.packageName}")).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      }
+      ctx.startActivity(intent)
+      true
     }
 
     Function("cancelBenchmark") {
