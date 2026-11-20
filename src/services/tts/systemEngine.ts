@@ -1,0 +1,29 @@
+// The phone's own text-to-speech (Android TTS). Kept as the fallback voice.
+import * as Speech from 'expo-speech';
+import type { TtsEngine } from './types';
+
+let koreanVoice: boolean | null = null;
+
+/** Whether the device's text-to-speech engine has a Korean voice installed. */
+export async function hasKoreanVoice(): Promise<boolean> {
+  // A missing voice is checked again next time: the user may install one meanwhile.
+  if (koreanVoice === true) return true;
+  try {
+    const voices = await Speech.getAvailableVoicesAsync();
+    koreanVoice = voices.some((v) => v.language?.toLowerCase().startsWith('ko'));
+  } catch {
+    koreanVoice = false;
+  }
+  return koreanVoice;
+}
+
+export const systemEngine: TtsEngine = {
+  id: 'system',
+  isReady: hasKoreanVoice,
+  async play({ text, rate }) {
+    Speech.speak(text, { language: 'ko-KR', rate });
+  },
+  async stop() {
+    await Speech.stop();
+  },
+};

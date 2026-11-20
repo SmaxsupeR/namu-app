@@ -9,7 +9,7 @@ import { answer, cardKey, completeIntro, createFreeSession, createSession, curre
 import type { SelfGrade } from '../core/model';
 import { getDb } from '../db';
 import { applyEvent, finishSession, getDistractorPool, getEntries, getTodayWordIds, planFreePractice, planSession, startSession, type Entry, type FreeSource } from '../db/repo';
-import { speakKorean } from '../services/speech';
+import { speakKorean, stopSpeech } from '../services/speech';
 import { directionList, useApp } from '../state/store';
 import { Bar, Body, Btn, Card, Empty, Icon, IconBtn, Row } from '../ui/components';
 import { useInterval, useT } from '../ui/i18n';
@@ -147,6 +147,9 @@ export default function Study() {
     },
     [tr],
   );
+
+  // Leaving the session silences any word that is still being spoken.
+  useEffect(() => () => void stopSpeech(), []);
 
   // Pronounce a new word as soon as it is shown.
   useEffect(() => {
