@@ -30,7 +30,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - name: Configure Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "Android SDK already provided by GitHub runner: $ANDROID_SDK_ROOT"
+        working-directory: .
       - name: Install JS dependencies
         run: npm ci
       - name: TypeScript check
