@@ -17,7 +17,7 @@ if os.path.exists(db_path):
     os.remove(db_path)
 db = sqlite3.connect(db_path)
 db.executescript('''
-PRAGMA page_size = 4096;
+PRAGMA page_size = 65536;  -- 5 KB clips fit inline; 4 KB pages wasted ~20% on overflow
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE audio (text TEXT PRIMARY KEY, data BLOB NOT NULL) WITHOUT ROWID;
 ''')
