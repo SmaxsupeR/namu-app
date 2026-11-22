@@ -30,8 +30,8 @@ function service(engines: TtsEngine[], pref: EnginePreference = 'auto', log?: (e
 
 describe('speech service', () => {
   it('orders engines with the system voice last', () => {
-    expect(engineOrder('auto')).toEqual(['supertonic', 'system']);
-    expect(engineOrder('supertonic')).toEqual(['supertonic', 'system']);
+    expect(engineOrder('auto')).toEqual(['dictaudio', 'supertonic', 'system']);
+    expect(engineOrder('supertonic')).toEqual(['dictaudio', 'supertonic', 'system']);
     expect(engineOrder('system')).toEqual(['system']);
   });
 
@@ -154,5 +154,30 @@ describe('speech service with a cached neural voice', () => {
     const sys = fake('system');
     await service([neural.engine, sys.engine], 'system').speak('학교');
     expect(neural.prefetched).toEqual([]);
+  });
+});
+
+describe('pre-made dictionary audio in the service', () => {
+  it('plays a dictionary word from the pack, and never waits for it otherwise', async () => {
+    const pack = fake('dictaudio');
+    pack.engine.hasAudio = async (t) => t === '학교';
+    const neural = fake('supertonic');
+    neural.engine.hasAudio = async () => false;
+    const prefetched: string[] = [];
+    neural.engine.prefetch = (t) => void prefetched.push(t);
+    const sys = fake('system');
+    const s = service([pack.engine, neural.engine, sys.engine]);
+    expect(await s.speak('학교')).toEqual({ ok: true, engine: 'dictaudio' });
+    expect(prefetched).toEqual([]);
+    expect(await s.speak('나의 학교')).toEqual({ ok: true, engine: 'system' });
+    expect(prefetched).toEqual(['나의 학교']);
+    expect(pack.state.played).toEqual(['학교']);
+  });
+
+  it('is skipped when the phone voice is chosen', async () => {
+    const pack = fake('dictaudio');
+    pack.engine.hasAudio = async () => true;
+    const sys = fake('system');
+    expect(await service([pack.engine, sys.engine], 'system').speak('학교')).toEqual({ ok: true, engine: 'system' });
   });
 });

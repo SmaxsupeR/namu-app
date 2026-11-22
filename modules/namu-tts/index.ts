@@ -57,6 +57,9 @@ export declare class NamuTtsNative extends NativeModule<Events> {
   moveDir(from: string, to: string): Promise<boolean>;
   deleteTree(file: string): Promise<boolean>;
   copyFile(from: string, to: string): Promise<number>;
+  concatFiles(parts: string[], to: string): Promise<number>;
+  dictAudio(db: string, text: string, out: string): Promise<boolean>;
+  dictAudioHas(db: string, text: string): Promise<boolean>;
   gunzip(from: string, to: string): Promise<number>;
   listDir(dir: string): Promise<string[]>;
   dirSize(dir: string): Promise<number>;

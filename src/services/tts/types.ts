@@ -2,7 +2,7 @@
 // selection logic can be tested in Node.
 
 /** Speech engines the app knows about. */
-export type EngineId = 'supertonic' | 'system';
+export type EngineId = 'dictaudio' | 'supertonic' | 'system';
 /** What the user picked in settings. "auto" prefers the neural voice when it is installed. */
 export type EnginePreference = 'auto' | EngineId;
 

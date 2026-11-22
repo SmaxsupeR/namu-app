@@ -6,7 +6,10 @@ import { NamuTts } from '../../modules/namu-tts';
 import { getDb } from '../db';
 import { directionList } from '../state/store';
 import { getEntries, planSession } from '../db/repo';
-import { createAudioCache, type AudioCache } from './tts/audioCache';
+import { headwordSpeech } from '../dict/speech';
+import { createAudioCache, speechText, type AudioCache } from './tts/audioCache';
+import { createDictAudioEngine, createDictAudioPack, type DictAudioInstalled, type DictAudioPack } from './tts/dictAudio';
+import { VOICES_INDEX_URL } from './tts/pack';
 import type { Priority } from './tts/queuePolicy';
 import { createSynthQueue, type SynthQueue } from './tts/synthQueue';
 import { useApp } from '../state/store';
@@ -120,6 +123,7 @@ export const synthQueue: SynthQueue | null =
         conditions: () => NamuTts!.conditions(),
         foreground: () => foreground,
         sha256: (s) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, s),
+        alreadyAvailable: async (text) => (dictEngine?.hasAudio ? (await dictEngine.isReady()) && (await dictEngine.hasAudio(text)) : false),
       })
     : null;
 
@@ -139,7 +143,7 @@ if (synthQueue && neural) {
  */
 export function prepareSpeech(texts: string[], priority: Priority): void {
   if (!synthQueue || useApp.getState().settings.ttsEngine === 'system' || texts.length === 0) return;
-  void synthQueue.enqueue(texts, priority).catch(() => {});
+  void synthQueue.enqueue(texts.map(spoken), priority).catch(() => {});
 }
 
 /** Queues today's words (P2) and, if the user asked for it, every word (P3). */
@@ -180,16 +184,63 @@ export async function initSpeech(): Promise<void> {
   });
 }
 
-const engines: TtsEngine[] = neural ? [neural, systemEngine] : [systemEngine];
+/** Pre-made audio of the dictionary's headwords (optional download). */
+export const dictAudioPack: DictAudioPack | null = NamuTts
+  ? createDictAudioPack(
+      {
+        fileSize: NamuTts.fileSize,
+        readText: NamuTts.readText,
+        writeTextAtomic: NamuTts.writeTextAtomic,
+        deleteTree: NamuTts.deleteTree,
+        listDir: NamuTts.listDir,
+        sha256: NamuTts.sha256,
+        freeSpaceMb: NamuTts.freeSpaceMb,
+        concatFiles: NamuTts.concatFiles,
+        cancelDownload: () => NamuTts!.cancelDownload(),
+        download: nativeIO().download,
+      },
+      `${storage}/dict-audio`,
+      fetchJson,
+      VOICES_INDEX_URL,
+    )
+  : null;
+
+let dictAudioState: Promise<DictAudioInstalled | null> | null = null;
+export function dictAudioInstalled(): Promise<DictAudioInstalled | null> {
+  if (!dictAudioPack) return Promise.resolve(null);
+  dictAudioState ??= dictAudioPack.installed().catch(() => null);
+  return dictAudioState;
+}
+/** Call after installing or removing the dictionary audio. */
+export function dictAudioChanged(): void {
+  dictAudioState = null;
+}
+
+const dictEngine: TtsEngine | null = NamuTts
+  ? createDictAudioEngine({
+      native: NamuTts,
+      installed: dictAudioInstalled,
+      voice: () => useApp.getState().settings.ttsVoice,
+      key: speechText,
+      tmpDir: `${storage}/tts-tmp`,
+    })
+  : null;
+
+const engines: TtsEngine[] = [...(dictEngine ? [dictEngine] : []), ...(neural ? [neural] : []), systemEngine];
 
 const service = createSpeechService({
   engines: () => engines,
   preference: () => useApp.getState().settings.ttsEngine,
 });
 
+/** Dictionary notation (비위(가) 사납다, 거리에/로) is read as its main variant; sentences stay as they are. */
+function spoken(text: string): string {
+  return /[.?!,]/.test(text) ? text : (headwordSpeech(text) ?? text);
+}
+
 /** Speaks Korean text with the best available voice. */
 export function speak(text: string, rate = 0.9): Promise<SpeakOutcome> {
-  return service.speak(text, { rate });
+  return service.speak(spoken(text), { rate });
 }
 
 /**
@@ -198,7 +249,7 @@ export function speak(text: string, rate = 0.9): Promise<SpeakOutcome> {
  * the newer call is the one the user hears.
  */
 export async function speakKorean(text: string, rate = 0.9): Promise<boolean> {
-  const r = await service.speak(text, { rate });
+  const r = await service.speak(spoken(text), { rate });
   return r.ok || r.reason === 'superseded' || r.reason === 'empty';
 }
 

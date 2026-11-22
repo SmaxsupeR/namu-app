@@ -233,6 +233,61 @@ class NamuTtsModule : Module() {
       b.length().toDouble()
     }
 
+    /** Joins downloaded parts into one file (through a temporary file and a rename). */
+    AsyncFunction("concatFiles") { parts: List<String>, to: String ->
+      val b = path(to)
+      b.parentFile?.mkdirs()
+      val tmp = File(b.parentFile, "${b.name}.part")
+      java.io.FileOutputStream(tmp).use { o ->
+        for (p in parts) path(p).inputStream().use { it.copyTo(o, 1 shl 20) }
+        o.fd.sync()
+      }
+      if (!tmp.renameTo(b)) {
+        tmp.delete()
+        throw CodedException("E_IO", "Could not move ${b.name}", null)
+      }
+      b.length().toDouble()
+    }
+
+    /**
+     * Copies one recording out of the dictionary audio database (table audio(text, data)) into
+     * `out`. Returns false when the text is not there. Read-only; the text is not logged.
+     */
+    AsyncFunction("dictAudio") { db: String, text: String, out: String ->
+      val f = path(db)
+      if (!f.isFile) return@AsyncFunction false
+      val sql = android.database.sqlite.SQLiteDatabase.openDatabase(f.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
+      try {
+        sql.rawQuery("SELECT data FROM audio WHERE text = ?", arrayOf(text)).use { c ->
+          if (!c.moveToFirst()) return@AsyncFunction false
+          val bytes = c.getBlob(0)
+          val o = path(out)
+          o.parentFile?.mkdirs()
+          val tmp = File(o.parentFile, "${o.name}.part")
+          tmp.writeBytes(bytes)
+          if (!tmp.renameTo(o)) {
+            tmp.delete()
+            return@AsyncFunction false
+          }
+          true
+        }
+      } finally {
+        sql.close()
+      }
+    }
+
+    /** Whether the dictionary audio database has this text. */
+    AsyncFunction("dictAudioHas") { db: String, text: String ->
+      val f = path(db)
+      if (!f.isFile) return@AsyncFunction false
+      val sql = android.database.sqlite.SQLiteDatabase.openDatabase(f.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
+      try {
+        sql.rawQuery("SELECT 1 FROM audio WHERE text = ?", arrayOf(text)).use { it.moveToFirst() }
+      } finally {
+        sql.close()
+      }
+    }
+
     AsyncFunction("deleteTree") { file: String -> path(file).deleteRecursively() }
 
     AsyncFunction("listDir") { dir: String -> path(dir).list()?.toList() ?: emptyList<String>() }

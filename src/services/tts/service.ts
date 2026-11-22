@@ -18,7 +18,7 @@ export interface SpeechService {
 
 /** Engines to try, best first. The system voice is always the last resort. */
 export function engineOrder(pref: EnginePreference): EngineId[] {
-  return pref === 'system' ? ['system'] : ['supertonic', 'system'];
+  return pref === 'system' ? ['system'] : ['dictaudio', 'supertonic', 'system'];
 }
 
 export function createSpeechService(opts: SpeechServiceOptions): SpeechService {
@@ -81,8 +81,11 @@ export function createSpeechService(opts: SpeechServiceOptions): SpeechService {
         if (token !== generation) return { ok: false, reason: 'superseded' };
         if (!(await ready(engine))) continue;
         if (!(await instant(engine))) {
-          slow.push(engine);
-          engine.prefetch?.(text);
+          // Only an engine that can make audio is worth waiting for (pre-made audio cannot).
+          if (engine.prefetch) {
+            slow.push(engine);
+            engine.prefetch(text);
+          }
           continue;
         }
         if (token !== generation) return { ok: false, reason: 'superseded' };

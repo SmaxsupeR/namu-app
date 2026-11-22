@@ -6,7 +6,7 @@ import android.media.AudioTrack
 import android.media.MediaPlayer
 import java.io.File
 
-/** Plays one file at a time (WAV through AudioTrack, .m4a through MediaPlayer). Starting a new one stops the previous one. */
+/** Plays one file at a time (WAV through AudioTrack; .m4a and .webm through MediaPlayer). Starting a new one stops the previous one. */
 class Player {
   private var track: AudioTrack? = null
   private var media: MediaPlayer? = null
@@ -15,7 +15,7 @@ class Player {
   @Synchronized
   fun play(file: File): Double {
     stop()
-    if (file.name.endsWith(".m4a")) return playCompressed(file)
+    if (!file.name.endsWith(".wav")) return playCompressed(file)
     val pcm = Wav.read(file)
     val t = AudioTrack.Builder()
       .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())

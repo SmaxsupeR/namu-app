@@ -15,6 +15,8 @@ export interface QueueDeps {
   conditions: () => Promise<DeviceConditions>;
   foreground: () => boolean;
   sha256: (s: string) => Promise<string>;
+  /** Texts that need no synthesis (e.g. found in the pre-made dictionary audio). */
+  alreadyAvailable?: (text: string) => Promise<boolean>;
   now?: () => number;
   /** Runs fn after ms; returns a cancel function. */
   schedule?: (fn: () => void, ms: number) => () => void;
@@ -99,6 +101,7 @@ export function createSynthQueue(deps: QueueDeps) {
       if (text === '' || text.length > 500 || seen.has(text)) continue;
       seen.add(text);
       if (await deps.cache.has(await deps.cache.keyFor(text, ctx))) continue;
+      if (deps.alreadyAvailable && (await deps.alreadyAvailable(text).catch(() => false))) continue;
       const id = await deps.sha256(text);
       // A text asked for urgently gets a fresh chance even if it failed before.
       await db.runAsync(

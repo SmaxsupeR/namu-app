@@ -6,6 +6,7 @@ import { audioCache, packChanged, synthQueue, voicePacks } from '../services/spe
 import { removeFullDict, useDictPack } from '../state/dictPack';
 import { CACHE_LIMITS_MB, type Settings } from '../state/store';
 import { refreshVoicePack, useVoicePack } from '../state/voicePack';
+import { useDictAudio } from '../state/dictAudio';
 import { Body, Btn, Card, Chip, Row } from './components';
 import { useT } from './i18n';
 import { space, useTheme } from './theme';
@@ -18,6 +19,7 @@ export function StorageCard({ settings, update }: { settings: Settings; update: 
   const router = useRouter();
   const { state } = useVoicePack();
   const { edition, offer } = useDictPack();
+  const dictAudio = useDictAudio((s) => s.installed);
   const [cache, setCache] = useState<{ count: number; bytes: number } | null>(null);
   const [checking, setChecking] = useState(false);
 
@@ -82,6 +84,7 @@ export function StorageCard({ settings, update }: { settings: Settings; update: 
       <Text style={[styles.title, { color: t.text }]}>{tr('storageTitle')}</Text>
       {state?.status === 'ready' ? line(tr('storageVoice'), `${mb(state.pack.bytes)} МБ`) : null}
       {audioCache ? line(tr('storageRecordings', { n: cache?.count ?? 0 }), `${mb(cache?.bytes ?? 0)} / ${settings.ttsCacheLimitMb} МБ`) : null}
+      {dictAudio ? line(tr('dictAudioTitle'), `${mb(dictAudio.bytes)} МБ`) : null}
       {line(tr('storageDict'), edition === 'full' ? `${mb(offer?.unpackedSize ?? 70 * 1048576)} МБ` : '29 МБ')}
       {audioCache ? (
         <>
