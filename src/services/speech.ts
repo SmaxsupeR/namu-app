@@ -103,6 +103,7 @@ export const audioCache: AudioCache | null =
         dir: `${storage}/tts-cache`,
         sha256: (s) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, s),
         synth: (text, out) => neural.synthToFile(text, out),
+        limitBytes: () => useApp.getState().settings.ttsCacheLimitMb * 1024 * 1024,
       })
     : null;
 if (audioCache) neural?.attachCache(audioCache);
@@ -175,6 +176,7 @@ export async function initSpeech(): Promise<void> {
     const b = prev.settings;
     if (a.ttsVoice !== b.ttsVoice || a.ttsEngine !== b.ttsEngine || (a.ttsPrepareAll && !b.ttsPrepareAll)) void refillQueue().catch(() => {});
     if (!a.ttsPrepareAll && b.ttsPrepareAll) void synthQueue?.drop(3);
+    if (a.ttsCacheLimitMb < b.ttsCacheLimitMb) void audioCache?.evict().catch(() => {});
   });
 }
 
@@ -210,6 +212,13 @@ export async function previewNeural(text: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Licence texts shipped with the installed voice pack (LICENSE and NOTICE.txt). */
+export async function voiceLicenseTexts(): Promise<{ license: string | null; notice: string | null }> {
+  const s = await currentPack();
+  if (s.status !== 'ready' || !NamuTts) return { license: null, notice: null };
+  return { license: await NamuTts.readText(`${s.dir}/LICENSE`), notice: await NamuTts.readText(`${s.dir}/NOTICE.txt`) };
 }
 
 export function stopSpeech(): Promise<void> {

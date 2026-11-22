@@ -233,6 +233,10 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX ix_tts_queue_next ON tts_queue(failed, next_at, priority);
   `,
+  // v6: cached audio may be compressed (AAC, .m4a) or WAV; the file is <key>.<fmt>.
+  `
+  ALTER TABLE tts_cache ADD COLUMN fmt TEXT NOT NULL DEFAULT 'wav' CHECK (fmt IN ('wav', 'm4a'));
+  `,
 ];
 
 /** Columns of every table, in backup order (parents before children). */

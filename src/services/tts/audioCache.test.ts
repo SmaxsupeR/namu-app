@@ -8,7 +8,7 @@ import { createAudioCache, speechText, type CacheIO } from './audioCache';
 const DIR = '/data/tts-cache';
 const ctx = { pack: 'int8w@1', voice: 'F1' };
 
-async function setup(limit = 1_000_000) {
+async function setup(limit = 1_000_000, format: 'wav' | 'm4a' = 'wav') {
   const db = openTestDb();
   await migrate(db);
   const files = new Map<string, number>();
@@ -24,11 +24,11 @@ async function setup(limit = 1_000_000) {
     io,
     dir: DIR,
     sha256: async (s) => createHash('sha256').update(s).digest('hex'),
-    synth: async (text, out) => {
+    synth: async (text, outBase) => {
       synthesized.push(text);
       await new Promise((r) => setTimeout(r, 5));
-      files.set(out, 44 + text.length * 1000);
-      return { audioSec: text.length / 10 };
+      files.set(`${outBase}.${format}`, 44 + text.length * 1000);
+      return { audioSec: text.length / 10, format };
     },
     now: () => t,
     limitBytes: () => limit,
@@ -144,6 +144,19 @@ describe('audio cache', () => {
     const backup = await exportBackup(db);
     expect(Object.keys(backup.tables)).not.toContain('tts_cache');
     expect(JSON.stringify(backup)).not.toContain('학교');
+  });
+
+  it('keeps compressed recordings under their own extension and can drop one', async () => {
+    const { cache, files, db } = await setup(1_000_000, 'm4a');
+    const key = await cache.keyFor('학교', ctx);
+    const file = await cache.create('학교', ctx, key);
+    expect(file).toBe(`${DIR}/${key}.m4a`);
+    expect(await cache.lookup(key)).toBe(file);
+    expect((await db.getFirstAsync<{ fmt: string }>('SELECT fmt FROM tts_cache', []))?.fmt).toBe('m4a');
+    expect(await cache.reconcile()).toEqual({ rows: 0, files: 0 });
+    await cache.drop(file);
+    expect(await cache.has(key)).toBe(false);
+    expect(files.has(file)).toBe(false);
   });
 
   it('normalizes text for speech', () => {

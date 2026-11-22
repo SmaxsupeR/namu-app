@@ -8,6 +8,7 @@ import { VOICES, voiceKind, type VoiceId } from '../services/tts/voices';
 import type { Settings } from '../state/store';
 import { cancelVoicePack, downloadVoicePack, loadOffer, refreshVoicePack, removeVoicePack, useVoicePack } from '../state/voicePack';
 import { Bar, Body, Btn, Card, Chip, Row } from './components';
+import { StorageCard } from './StorageCard';
 import { useT, type StringKey } from './i18n';
 import { space, useTheme } from './theme';
 
@@ -185,6 +186,7 @@ export function VoiceSettings({ settings, update }: { settings: Settings; update
         {error ? <Body style={{ color: t.danger }}>{error === 'cancelled' ? tr('voiceCancelled') : tr(ERRORS[error] ?? 'voiceErrNetwork')}</Body> : null}
       </Card>
       {neuralSupported && state?.status === 'ready' && settings.ttsEngine !== 'system' ? <QueueCard prepareAll={settings.ttsPrepareAll} onPrepareAll={(v) => update('ttsPrepareAll', v)} /> : null}
+      <StorageCard settings={settings} update={update} />
       <Body dim>{tr('voiceLicense')}</Body>
     </>
   );

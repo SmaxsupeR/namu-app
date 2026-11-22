@@ -33,13 +33,14 @@ export interface CacheDeps {
   io: CacheIO;
   dir: string;
   sha256: (s: string) => Promise<string>;
-  /** Synthesizes `text` into `out`; resolves with the audio length in seconds. */
-  synth: (text: string, out: string) => Promise<{ audioSec: number }>;
+  /** Synthesizes `text` into `outBase` + ".m4a" or ".wav"; resolves with the length and the format written. */
+  synth: (text: string, outBase: string) => Promise<{ audioSec: number; format: AudioFormat }>;
   now?: () => number;
   limitBytes?: () => number;
 }
 
-const KEY_FILE = /^([0-9a-f]{64})\.wav$/;
+export type AudioFormat = 'wav' | 'm4a';
+const KEY_FILE = /^([0-9a-f]{64})\.(wav|m4a)$/;
 
 /** Text exactly as the voice will read it. */
 export function speechText(text: string): string {
@@ -49,7 +50,7 @@ export function speechText(text: string): string {
 export function createAudioCache(deps: CacheDeps) {
   const now = deps.now ?? Date.now;
   const limit = deps.limitBytes ?? (() => CACHE_LIMIT_BYTES);
-  const fileOf = (key: string) => `${deps.dir}/${key}.wav`;
+  const fileOf = (key: string, fmt: AudioFormat = 'wav') => `${deps.dir}/${key}.${fmt}`;
   // One synthesis per key at a time, however many callers ask for it.
   const inFlight = new Map<string, Promise<string>>();
 
@@ -60,9 +61,9 @@ export function createAudioCache(deps: CacheDeps) {
   /** Path of the cached audio, or null. A row whose file is gone or wrong is dropped. */
   async function lookup(key: string): Promise<string | null> {
     const db = await deps.db();
-    const row = await db.getFirstAsync<{ bytes: number }>('SELECT bytes FROM tts_cache WHERE key = ?', [key]);
+    const row = await db.getFirstAsync<{ bytes: number; fmt: AudioFormat }>('SELECT bytes, fmt FROM tts_cache WHERE key = ?', [key]);
     if (!row) return null;
-    const file = fileOf(key);
+    const file = fileOf(key, row.fmt);
     if ((await deps.io.fileSize(file)) !== row.bytes) {
       await db.runAsync('DELETE FROM tts_cache WHERE key = ?', [key]);
       await deps.io.deleteTree(file);
@@ -84,17 +85,18 @@ export function createAudioCache(deps: CacheDeps) {
     const job = (async () => {
       const cached = await lookup(key);
       if (cached) return cached;
-      const file = fileOf(key);
       const spoken = speechText(text);
-      const r = await deps.synth(spoken, file);
+      const r = await deps.synth(spoken, `${deps.dir}/${key}`);
+      const fmt: AudioFormat = r.format === 'm4a' ? 'm4a' : 'wav';
+      const file = fileOf(key, fmt);
       const bytes = await deps.io.fileSize(file);
       if (bytes <= 44) throw new Error('E_EMPTY_AUDIO');
       const db = await deps.db();
       const t = now();
       await db.runAsync(
-        `INSERT INTO tts_cache (key, text, pack, voice, bytes, duration_ms, created_at, last_used_at, uses) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
-         ON CONFLICT(key) DO UPDATE SET bytes = excluded.bytes, duration_ms = excluded.duration_ms, last_used_at = excluded.last_used_at`,
-        [key, spoken, ctx.pack, ctx.voice, bytes, Math.round(r.audioSec * 1000), t, t],
+        `INSERT INTO tts_cache (key, text, pack, voice, bytes, duration_ms, created_at, last_used_at, uses, fmt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+         ON CONFLICT(key) DO UPDATE SET bytes = excluded.bytes, duration_ms = excluded.duration_ms, last_used_at = excluded.last_used_at, fmt = excluded.fmt`,
+        [key, spoken, ctx.pack, ctx.voice, bytes, Math.round(r.audioSec * 1000), t, t, fmt],
       );
       await evict(key);
       return file;
@@ -111,12 +113,12 @@ export function createAudioCache(deps: CacheDeps) {
     const target = limit() * 0.9;
     let size = total;
     let removed = 0;
-    const rows = await db.getAllAsync<{ key: string; bytes: number }>('SELECT key, bytes FROM tts_cache ORDER BY last_used_at ASC, created_at ASC', []);
+    const rows = await db.getAllAsync<{ key: string; bytes: number; fmt: AudioFormat }>('SELECT key, bytes, fmt FROM tts_cache ORDER BY last_used_at ASC, created_at ASC', []);
     for (const r of rows) {
       if (size <= target) break;
       if (r.key === keep) continue;
       await db.runAsync('DELETE FROM tts_cache WHERE key = ?', [r.key]);
-      await deps.io.deleteTree(fileOf(r.key));
+      await deps.io.deleteTree(fileOf(r.key, r.fmt));
       size -= r.bytes;
       removed++;
     }
@@ -129,25 +131,25 @@ export function createAudioCache(deps: CacheDeps) {
    */
   async function reconcile(): Promise<{ rows: number; files: number }> {
     const db = await deps.db();
-    const rows = await db.getAllAsync<{ key: string; bytes: number }>('SELECT key, bytes FROM tts_cache', []);
-    const known = new Map(rows.map((r) => [r.key, r.bytes]));
+    const rows = await db.getAllAsync<{ key: string; bytes: number; fmt: AudioFormat }>('SELECT key, bytes, fmt FROM tts_cache', []);
+    const known = new Map(rows.map((r) => [r.key, r]));
     let droppedRows = 0;
     let droppedFiles = 0;
     const names = await deps.io.listDir(deps.dir).catch(() => [] as string[]);
     const present = new Set<string>();
     for (const name of names) {
       const m = KEY_FILE.exec(name);
-      if (m && known.has(m[1])) {
+      if (m && known.get(m[1])?.fmt === m[2]) {
         present.add(m[1]);
         continue;
       }
       await deps.io.deleteTree(`${deps.dir}/${name}`);
       droppedFiles++;
     }
-    for (const [key, bytes] of known) {
-      if (present.has(key) && (await deps.io.fileSize(fileOf(key))) === bytes) continue;
+    for (const [key, row] of known) {
+      if (present.has(key) && (await deps.io.fileSize(fileOf(key, row.fmt))) === row.bytes) continue;
       await db.runAsync('DELETE FROM tts_cache WHERE key = ?', [key]);
-      if (present.has(key)) await deps.io.deleteTree(fileOf(key));
+      if (present.has(key)) await deps.io.deleteTree(fileOf(key, row.fmt));
       droppedRows++;
     }
     await evict();
@@ -163,14 +165,23 @@ export function createAudioCache(deps: CacheDeps) {
   /** Deletes all cached audio, or all except the given pack's (after a pack update). */
   async function clear(keepPack?: string | null): Promise<void> {
     const db = await deps.db();
-    const rows = await db.getAllAsync<{ key: string }>(keepPack ? 'SELECT key FROM tts_cache WHERE pack <> ?' : 'SELECT key FROM tts_cache', keepPack ? [keepPack] : []);
+    const rows = await db.getAllAsync<{ key: string; fmt: AudioFormat }>(keepPack ? 'SELECT key, fmt FROM tts_cache WHERE pack <> ?' : 'SELECT key, fmt FROM tts_cache', keepPack ? [keepPack] : []);
     for (const r of rows) {
       await db.runAsync('DELETE FROM tts_cache WHERE key = ?', [r.key]);
-      await deps.io.deleteTree(fileOf(r.key));
+      await deps.io.deleteTree(fileOf(r.key, r.fmt));
     }
   }
 
-  return { keyFor, lookup, has, create, evict, reconcile, stats, clear, fileOf };
+  /** Forgets one recording (its file could not be played). */
+  async function drop(file: string): Promise<void> {
+    const m = KEY_FILE.exec(file.slice(file.lastIndexOf('/') + 1));
+    if (!m) return;
+    const db = await deps.db();
+    await db.runAsync('DELETE FROM tts_cache WHERE key = ?', [m[1]]);
+    await deps.io.deleteTree(fileOf(m[1], m[2] as AudioFormat));
+  }
+
+  return { keyFor, lookup, has, create, evict, reconcile, stats, clear, drop, fileOf };
 }
 
 export type AudioCache = ReturnType<typeof createAudioCache>;

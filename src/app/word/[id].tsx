@@ -56,6 +56,8 @@ export default function WordScreen() {
       const w = await getWordDetail(db, Number(id));
       setWord(w);
       setEdition(await dictionaryEdition());
+      // Have the neural voice ready by the time the user taps "listen".
+      if (w) prepareSpeech([headword(w)], 1);
       if (w) setChosen(w.senses.length ? [w.senses[0].id] : []);
     })().catch(() => setWord(null));
   }, [id]);

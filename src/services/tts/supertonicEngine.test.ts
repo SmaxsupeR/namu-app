@@ -24,7 +24,7 @@ function native(opts: { device?: Partial<DeviceFacts>; failFast?: string; failLi
     },
     synthToFile: async (_t, voice, steps, speed, seed, out) => {
       calls.push(`synth:${voice}:${steps}:${speed}:${seed}:${out}`);
-      return { audioSec: 1, totalMs: 1 };
+      return { audioSec: 1, totalMs: 1, format: 'wav' as const };
     },
     playFile: async (f) => {
       calls.push(`play:${f}`);
@@ -55,7 +55,8 @@ describe('neural engine', () => {
     expect(await e.isReady()).toBe(true);
     await Promise.all([e.play(req()), e.play(req())]);
     expect(calls.filter((c) => c.startsWith('load'))).toEqual(['load:fast:4']);
-    expect(calls).toContain(`synth:M1:${SYNTH.steps}:${SYNTH.speed}:${SYNTH.seed}:/t/live-0.wav`);
+    expect(calls).toContain(`synth:M1:${SYNTH.steps}:${SYNTH.speed}:${SYNTH.seed}:/t/live-0`);
+    expect(calls).toContain('play:/t/live-0.wav');
     expect(e.mode()).toBe('fast');
   });
 
@@ -122,10 +123,11 @@ describe('neural engine with the audio cache', () => {
     await migrate(db);
     const { n, calls } = native();
     const files = new Map<string, number>();
-    n.synthToFile = async (text, voice, _s, _sp, _seed, out) => {
+    n.synthToFile = async (text, voice, _s, _sp, _seed, outBase, compress) => {
       calls.push(`synth:${voice}:${text}`);
-      files.set(out, 5000);
-      return { audioSec: 1, totalMs: 1 };
+      const format = compress ? ('m4a' as const) : ('wav' as const);
+      files.set(`${outBase}.${format}`, 5000);
+      return { audioSec: 1, totalMs: 1, format };
     };
     const e = createSupertonicEngine({ native: n, packState: async () => ready(), voice: () => 'F2', tmpDir: '/t' });
     const cache = createAudioCache({
@@ -146,5 +148,46 @@ describe('neural engine with the audio cache', () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(calls).toContain('synth:F2:두 개');
     expect(await e.context()).toEqual({ pack: 'int8w@1', voice: 'F2' });
+  });
+});
+
+describe('compressed audio', () => {
+  it('stores AAC when the phone supports it, and goes back to WAV for good if playback fails', async () => {
+    const { createAudioCache } = await import('./audioCache');
+    const { migrate } = await import('../../db/schema');
+    const { openTestDb } = await import('../../db/testing');
+    const { createHash } = await import('node:crypto');
+    const db = openTestDb();
+    await migrate(db);
+    const { n, calls } = native();
+    const files = new Map<string, number>();
+    let aac = true;
+    let failPlay = true;
+    n.aacUsable = () => aac;
+    n.markAacBroken = () => void (aac = false);
+    n.synthToFile = async (_t, _v, _s, _sp, _seed, outBase, compress) => {
+      const format = compress ? ('m4a' as const) : ('wav' as const);
+      files.set(`${outBase}.${format}`, 5000);
+      return { audioSec: 1, totalMs: 1, format };
+    };
+    n.playFile = async (f) => {
+      calls.push(`play:${f}`);
+      if (failPlay && f.endsWith('.m4a')) throw new Error('E_PLAYBACK');
+      return 1;
+    };
+    const e = createSupertonicEngine({ native: n, packState: async () => ready(), voice: () => 'F1', tmpDir: '/t' });
+    const cache = createAudioCache({
+      db: async () => db,
+      io: { fileSize: async (f) => files.get(f) ?? -1, deleteTree: async (f) => void files.delete(f), listDir: async () => [] },
+      dir: '/c',
+      sha256: async (s) => createHash('sha256').update(s).digest('hex'),
+      synth: (text, out) => e.synthToFile(text, out),
+    });
+    e.attachCache(cache);
+    await expect(e.play(req())).rejects.toThrow('E_PLAYBACK');
+    expect(aac).toBe(false);
+    expect([...files.keys()].some((f) => f.endsWith('.m4a'))).toBe(false);
+    await e.play(req());
+    expect(calls.at(-1)).toMatch(/^play:\/c\/[0-9a-f]{64}\.wav$/);
   });
 });

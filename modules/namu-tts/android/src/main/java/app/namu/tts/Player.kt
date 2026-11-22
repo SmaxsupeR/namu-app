@@ -3,16 +3,19 @@ package app.namu.tts
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.MediaPlayer
 import java.io.File
 
-/** Plays one WAV file at a time. Starting a new one stops the previous one. */
+/** Plays one file at a time (WAV through AudioTrack, .m4a through MediaPlayer). Starting a new one stops the previous one. */
 class Player {
   private var track: AudioTrack? = null
+  private var media: MediaPlayer? = null
 
   /** Starts playback and returns the duration in seconds. */
   @Synchronized
   fun play(file: File): Double {
     stop()
+    if (file.name.endsWith(".m4a")) return playCompressed(file)
     val pcm = Wav.read(file)
     val t = AudioTrack.Builder()
       .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
@@ -31,6 +34,21 @@ class Player {
     return pcm.samples.size.toDouble() / pcm.sampleRate
   }
 
+  private fun playCompressed(file: File): Double {
+    val m = MediaPlayer()
+    try {
+      m.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+      m.setDataSource(file.absolutePath)
+      m.prepare()
+      m.start()
+    } catch (e: Throwable) {
+      m.release()
+      throw e
+    }
+    media = m
+    return m.duration / 1000.0
+  }
+
   @Synchronized
   fun stop() {
     track?.let {
@@ -38,5 +56,10 @@ class Player {
       it.release()
     }
     track = null
+    media?.let {
+      runCatching { it.stop() }
+      it.release()
+    }
+    media = null
   }
 }

@@ -12,6 +12,9 @@ export function directionList(setting: DirectionSetting): Direction[] {
   return setting === 'both' ? ['ko_ru', 'ru_ko'] : [setting];
 }
 
+/** Choices for the size of the neural-voice audio cache. */
+export const CACHE_LIMITS_MB = [100, 250, 500, 1000];
+
 export interface Settings {
   language: Language;
   newPerDay: number;
@@ -33,6 +36,8 @@ export interface Settings {
   ttsVoice: VoiceId;
   /** Prepare neural audio for every word ahead of time (asked once; uses battery and storage). */
   ttsPrepareAll: boolean;
+  /** Space neural-voice recordings may take, in MB. */
+  ttsCacheLimitMb: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ttsEngine: 'auto',
   ttsVoice: DEFAULT_VOICE,
   ttsPrepareAll: false,
+  ttsCacheLimitMb: 250,
 };
 
 export function settingsFromPrefs(prefs: Record<string, string>): Settings {
@@ -63,6 +69,7 @@ export function settingsFromPrefs(prefs: Record<string, string>): Settings {
       if (key === 'answerMethod' && !['keyboard', 'self_grade'].includes(value)) continue;
       if (key === 'ttsEngine' && !ENGINE_PREFERENCES.includes(value)) continue;
       if (key === 'ttsVoice' && !isVoiceId(value)) continue;
+      if (key === 'ttsCacheLimitMb' && !CACHE_LIMITS_MB.includes(value)) continue;
       if (key === 'practiceAttempts' && !(value >= 1 && value <= 10)) continue;
       (out as unknown as Record<string, unknown>)[key] = value;
     } catch {

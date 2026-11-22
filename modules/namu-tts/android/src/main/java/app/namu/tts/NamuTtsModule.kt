@@ -49,6 +49,12 @@ class NamuTtsModule : Module() {
     return mapOf("rssMb" to rss, "peakMb" to peak, "nativeHeapMb" to Debug.getNativeHeapAllocatedSize() / 1048576.0)
   }
 
+  private fun prefs() = context().getSharedPreferences("namu_tts", Context.MODE_PRIVATE)
+  private fun aacUsable(): Boolean = runCatching { !prefs().getBoolean("aac_broken", false) }.getOrDefault(false)
+  private fun markAacBroken() {
+    runCatching { prefs().edit().putBoolean("aac_broken", true).apply() }
+  }
+
   private fun releaseEngine() {
     synchronized(lock) {
       engine?.close()
@@ -262,8 +268,14 @@ class NamuTtsModule : Module() {
       }
     }
 
-    /** Synthesizes text into a WAV file (written atomically). The text is not logged. */
-    AsyncFunction("synthToFile") { text: String, voice: String, steps: Int, speed: Double, seed: Double, out: String ->
+    /**
+     * Synthesizes text into `outBase` + ".m4a" (when `compress` and AAC works here) or ".wav",
+     * written atomically; returns the format used. The text is not logged.
+     */
+    AsyncFunction("synthToFile") { text: String, voice: String, steps: Int, speed: Double, seed: Double, outBase: String, compress: Boolean ->
+      val audio: FloatArray
+      val rate: Int
+      val totalMs: Double
       synchronized(lock) {
         val e = engine ?: throw ModelNotLoaded()
         val dir = engineDir ?: throw ModelNotLoaded()
@@ -271,8 +283,9 @@ class NamuTtsModule : Module() {
         try {
           val style = styles.getOrPut(voice) { e.loadStyle(File(dir, "voice_styles/$voice.json")) }
           val r = e.synth(text, style, steps, speed, seed.toLong())
-          Wav.write(path(out), Loudness.normalize(r.audio, r.sampleRate), r.sampleRate)
-          mapOf("audioSec" to r.audio.size.toDouble() / r.sampleRate, "totalMs" to r.totalMs)
+          audio = Loudness.normalize(r.audio, r.sampleRate)
+          rate = r.sampleRate
+          totalMs = r.totalMs
         } catch (err: OutOfMemoryError) {
           throw OutOfMemory(err)
         } catch (err: CodedException) {
@@ -281,7 +294,25 @@ class NamuTtsModule : Module() {
           throw SynthFailed(err)
         }
       }
+      var format = "wav"
+      if (compress && aacUsable()) {
+        try {
+          AacEncoder.encode(audio, rate, path("$outBase.m4a"))
+          format = "m4a"
+        } catch (err: Throwable) {
+          Log.i(TTS_LOG_TAG, "AAC encoding failed, keeping WAV: ${err.javaClass.simpleName}")
+          markAacBroken()
+        }
+      }
+      if (format == "wav") Wav.write(path("$outBase.wav"), audio, rate)
+      mapOf("audioSec" to audio.size.toDouble() / rate, "totalMs" to totalMs, "format" to format)
     }
+
+    /** Whether compressed audio is used on this phone (false after it failed once). */
+    Function("aacUsable") { aacUsable() }
+
+    /** Called when an .m4a file could not be played: this phone goes back to WAV for good. */
+    Function("markAacBroken") { markAacBroken() }
 
     AsyncFunction("release") {
       releaseEngine()

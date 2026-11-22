@@ -62,7 +62,9 @@ export declare class NamuTtsNative extends NativeModule<Events> {
   dirSize(dir: string): Promise<number>;
   isLoaded(dir: string, fold: boolean): Promise<boolean>;
   load(dir: string, threads: number, fold: boolean): Promise<{ loadMs: number; memory: Memory }>;
-  synthToFile(text: string, voice: string, steps: number, speed: number, seed: number, out: string): Promise<{ audioSec: number; totalMs: number }>;
+  synthToFile(text: string, voice: string, steps: number, speed: number, seed: number, outBase: string, compress: boolean): Promise<{ audioSec: number; totalMs: number; format: 'wav' | 'm4a' }>;
+  aacUsable(): boolean;
+  markAacBroken(): void;
   release(): Promise<Memory>;
   playFile(file: string): Promise<number>;
   stopPlayback(): void;

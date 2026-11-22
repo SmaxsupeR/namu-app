@@ -22,7 +22,8 @@ async function setup(opts: { failTimes?: Map<string, number>; unavailable?: bool
     dir: '/c',
     sha256: sha,
     now: () => world.t,
-    synth: async (text, out) => {
+    synth: async (text, outBase) => {
+      const out = `${outBase}.wav`;
       if (world.unavailable) throw new Error('E_UNAVAILABLE');
       const left = fails.get(text) ?? 0;
       if (left > 0) {
@@ -31,7 +32,7 @@ async function setup(opts: { failTimes?: Map<string, number>; unavailable?: bool
       }
       synthesized.push(text);
       files.set(out, 1000);
-      return { audioSec: 1 };
+      return { audioSec: 1, format: 'wav' as const };
     },
   });
   const timers: { fn: () => void; at: number }[] = [];

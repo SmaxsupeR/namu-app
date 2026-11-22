@@ -11,8 +11,12 @@ export interface EngineNative {
   deviceInfo(): Promise<DeviceFacts>;
   isLoaded(dir: string, fold: boolean): Promise<boolean>;
   load(dir: string, threads: number, fold: boolean): Promise<{ loadMs: number }>;
-  synthToFile(text: string, voice: string, steps: number, speed: number, seed: number, out: string): Promise<{ audioSec: number; totalMs: number }>;
+  synthToFile(text: string, voice: string, steps: number, speed: number, seed: number, outBase: string, compress: boolean): Promise<{ audioSec: number; totalMs: number; format: 'wav' | 'm4a' }>;
   playFile(file: string): Promise<number>;
+  /** Whether compressed (AAC) files work on this phone. */
+  aacUsable?(): boolean;
+  /** An .m4a file failed to play: use WAV from now on. */
+  markAacBroken?(): void;
   stopPlayback(): void;
   release(): Promise<unknown>;
 }
@@ -43,8 +47,8 @@ export interface SupertonicEngine extends TtsEngine {
   released(): void;
   /** Voice actually used: the chosen one if the pack has it, otherwise the first voice. */
   voiceFor(state: PackState): string | null;
-  /** Synthesizes into a file (used by the cache). */
-  synthToFile(text: string, out: string): Promise<{ audioSec: number; totalMs: number }>;
+  /** Synthesizes into `outBase` + ".m4a" or ".wav" (used by the cache). */
+  synthToFile(text: string, outBase: string): Promise<{ audioSec: number; totalMs: number; format: 'wav' | 'm4a' }>;
   /** Connects the audio cache; from then on audio is played from and saved to it. */
   attachCache(cache: AudioCache): void;
   /** Cache context of the active pack and voice, or null without a usable pack. */
@@ -139,17 +143,26 @@ export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
       if (cache) {
         const file = await ensureAudio(text);
         if (!isCurrent()) return;
-        await deps.native.playFile(file);
+        try {
+          await deps.native.playFile(file);
+        } catch (e) {
+          // A compressed file this phone cannot play: go back to WAV and make it again next time.
+          if (file.endsWith('.m4a')) {
+            deps.native.markAacBroken?.();
+            await cache.drop(file).catch(() => {});
+          }
+          throw e;
+        }
         return;
       }
       const ready = await ensureLoaded();
       if (!ready) throw new Error('E_UNAVAILABLE');
       if (!isCurrent()) return;
       // Alternate two files so a new synthesis never overwrites the file being opened for playback.
-      const out = `${deps.tmpDir}/live-${counter++ % 2}.wav`;
-      await deps.native.synthToFile(text, ready.voice, SYNTH.steps, SYNTH.speed, SYNTH.seed, out);
+      const base = `${deps.tmpDir}/live-${counter++ % 2}`;
+      const r = await deps.native.synthToFile(text, ready.voice, SYNTH.steps, SYNTH.speed, SYNTH.seed, base, false);
       if (!isCurrent()) return;
-      await deps.native.playFile(out);
+      await deps.native.playFile(`${base}.${r.format}`);
     },
     async stop() {
       deps.native.stopPlayback();
@@ -189,10 +202,10 @@ export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
         .catch((e) => log('tts.prefetch_failed', { length: text.length, error: e instanceof Error ? e.message : String(e) }))
         .finally(() => pending.delete(text));
     },
-    async synthToFile(text, out) {
+    async synthToFile(text, outBase) {
       const ready = await ensureLoaded();
       if (!ready) throw new Error('E_UNAVAILABLE');
-      return deps.native.synthToFile(text, ready.voice, SYNTH.steps, SYNTH.speed, SYNTH.seed, out);
+      return deps.native.synthToFile(text, ready.voice, SYNTH.steps, SYNTH.speed, SYNTH.seed, outBase, deps.native.aacUsable?.() ?? false);
     },
   };
 }
