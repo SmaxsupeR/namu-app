@@ -9,8 +9,12 @@ export interface ExerciseWord {
   meanings: string[];
 }
 
-/** How a prompt is presented. Audio prompts turn an exercise into listening. */
-export type PromptMode = 'text' | 'audio';
+/**
+ * How a prompt is presented. 'audio': the Korean word is only heard and the answer is its
+ * meaning; 'dictation': heard and written down in Korean. Both make the exercise listening.
+ */
+export type PromptMode = 'text' | 'audio' | 'dictation';
+export const PROMPT_MODES: PromptMode[] = ['text', 'audio', 'dictation'];
 
 export interface ExerciseSpec {
   method: AnswerMethod;
@@ -40,7 +44,7 @@ export const EXERCISES: Record<AnswerMethod, ExerciseSpec> = {
 
 /** Skill of an attempt, taking the prompt into account: an audio prompt makes it listening. */
 export function attemptSkill(method: AnswerMethod, prompt: PromptMode = 'text'): LearningSkill {
-  return prompt === 'audio' ? 'listening' : EXERCISES[method].skill;
+  return prompt === 'text' ? EXERCISES[method].skill : 'listening';
 }
 
 export interface CheckedAnswer {
@@ -97,6 +101,14 @@ export function checkSelfGrade(grade: SelfGrade): { correct: boolean } {
 export interface PoolWord {
   korean: string;
   meaning: string;
+}
+
+/**
+ * Which side of the word a listening answer gives: the meaning after 'audio', the Korean
+ * spelling after 'dictation'. Checking and options then work like that text direction.
+ */
+export function listeningAnswerSide(prompt: PromptMode): Direction {
+  return prompt === 'dictation' ? 'ru_ko' : 'ko_ru';
 }
 
 /** Four options for a multiple-choice question, or null if there are not enough other words. */

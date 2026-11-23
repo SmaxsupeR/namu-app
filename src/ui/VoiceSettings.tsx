@@ -5,7 +5,7 @@ import { audioCache, neuralSupported, previewNeural, speakKorean, synthQueue } f
 import type { QueueStatus } from '../services/tts/synthQueue';
 import type { EnginePreference } from '../services/tts/types';
 import { VOICES, voiceKind, type VoiceId } from '../services/tts/voices';
-import type { Settings } from '../state/store';
+import { SPEECH_RATES, type Settings } from '../state/store';
 import { cancelVoicePack, downloadVoicePack, loadOffer, refreshVoicePack, removeVoicePack, useVoicePack } from '../state/voicePack';
 import { Bar, Body, Btn, Card, Chip, Row } from './components';
 import { DictAudioCard } from './DictAudioCard';
@@ -15,6 +15,7 @@ import { useT, type StringKey } from './i18n';
 import { space, useTheme } from './theme';
 
 const SAMPLE = '안녕하세요. 만나서 반갑습니다.';
+const RATE_LABEL: Record<number, StringKey> = { 0.75: 'rateSlow', 0.9: 'rateCalm', 1: 'rateNormal', 1.15: 'rateFast' };
 const mb = (bytes: number) => Math.round(bytes / 1048576);
 
 const ERRORS: Record<string, StringKey> = {
@@ -130,6 +131,20 @@ export function VoiceSettings({ settings, update }: { settings: Settings; update
           <Chip label={tr('voiceEngineSystem')} active={engine === 'system'} onPress={() => update('ttsEngine', 'system')} />
         </View>
         <Body dim>{tr(engine === 'auto' ? 'voiceEngineAutoHint' : 'voiceEngineSystemHint')}</Body>
+        <Text style={[styles.label, { color: t.text }]}>{tr('speechRate')}</Text>
+        <View style={styles.chips}>
+          {SPEECH_RATES.map((r) => (
+            <Chip
+              key={r}
+              label={tr(RATE_LABEL[r])}
+              active={settings.speechRate === r}
+              onPress={() => {
+                update('speechRate', r);
+                speakKorean(SAMPLE, r);
+              }}
+            />
+          ))}
+        </View>
         <Btn kind="ghost" small icon="volume-high" title={tr('voiceTestSystem')} onPress={() => speakKorean(SAMPLE)} />
       </Card>
 

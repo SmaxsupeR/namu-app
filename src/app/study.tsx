@@ -4,13 +4,13 @@ import { Alert, BackHandler, KeyboardAvoidingView, Pressable, ScrollView, StyleS
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DiffPart } from '../core/answer';
 import type { Outcome as AttemptOutcome } from '../core/attempt';
-import { buildChoiceOptions, checkChoice, checkKeyboard, checkSelfGrade } from '../core/exercises';
+import { buildChoiceOptions, checkChoice, checkKeyboard, checkSelfGrade, listeningAnswerSide, type PromptMode } from '../core/exercises';
 import { answer, cardKey, completeIntro, createFreeSession, createSession, currentTask, progress, type Card as LearnCard, type Direction, type Effect, type RecallMethod, type Session, type Task } from '../core/learning';
 import type { SelfGrade } from '../core/model';
 import { getDb } from '../db';
 import { applyEvent, finishSession, getDistractorPool, getEntries, getTodayWordIds, planFreePractice, planSession, startSession, type Entry, type FreeSource } from '../db/repo';
 import { prepareSpeech, speakKorean, stopSpeech } from '../services/speech';
-import { directionList, useApp } from '../state/store';
+import { directionList, SLOW_RATE, useApp } from '../state/store';
 import { Bar, Body, Btn, Card, Empty, Icon, IconBtn, Row } from '../ui/components';
 import { useInterval, useT } from '../ui/i18n';
 import { radius, space, useTheme } from '../ui/theme';
@@ -52,6 +52,8 @@ type StudyParams = {
   fails?: string;
   /** Free practice: '1' to count due reviews in FSRS. */
   count?: string;
+  /** Free practice: 'audio' (hear → meaning) or 'dictation' (hear → write Korean); text otherwise. */
+  prompt?: string;
 };
 
 const SELF_GRADES_SIMPLE: SelfGrade[] = ['again', 'good'];
@@ -64,6 +66,8 @@ export default function Study() {
   const params = useLocalSearchParams<StudyParams>();
   const dicts = (params.dicts ?? '').split(',').filter(Boolean);
   const free = params.kind === 'free';
+  const prompt: PromptMode = free && (params.prompt === 'audio' || params.prompt === 'dictation') ? params.prompt : 'text';
+  const listening = prompt !== 'text';
 
   const t = useTheme();
   const tr = useT();
@@ -107,7 +111,8 @@ export default function Study() {
       const hasChoice = (id: string, d: Direction) => options.current.has(cardKey(id, d));
       let s: Session;
       if (free) {
-        const directions: Direction[] = params.dirs === 'ko_ru' || params.dirs === 'ru_ko' ? [params.dirs] : ['ko_ru', 'ru_ko'];
+        // Listening practises hearing a Korean word: one card per word (its Korean → meaning card).
+        const directions: Direction[] = prompt !== 'text' ? ['ko_ru'] : params.dirs === 'ko_ru' || params.dirs === 'ru_ko' ? [params.dirs] : ['ko_ru', 'ru_ko'];
         const ids = (params.ids ?? '').split(',').filter(Boolean);
         const source: FreeSource =
           params.source === 'entries'
@@ -121,7 +126,7 @@ export default function Study() {
         await loadOptions([...new Set(seeds.map((x) => x.entryId))]);
         if (seeds.length > 0) sessionId.current = await startSession(db, params.source === 'hard' ? 'hard_words' : 'practice', dicts, now, 'free');
         const method = params.method === 'choice' || params.method === 'self_grade' ? params.method : 'keyboard';
-        s = createFreeSession({ cards: seeds, method, countAsReview: params.count === '1', maxFails: Number(params.fails) || settings.practiceAttempts, hasChoice, sessionId: sessionId.current });
+        s = createFreeSession({ cards: seeds, method, prompt, countAsReview: params.count === '1', maxFails: Number(params.fails) || settings.practiceAttempts, hasChoice, sessionId: sessionId.current });
       } else {
         const directions = directionList(settings.directions);
         const plan = await planSession(db, { dictionaryIds: dicts, directions, now, newPerDay: settings.newPerDay, maxReviews: settings.maxReviews });
@@ -161,11 +166,20 @@ export default function Study() {
     if (task?.kind === 'intro' && entry && settings.autoSpeak) speak(entry.korean, true);
   }, [task, entry, settings.autoSpeak, speak]);
 
+  // Listening: the word is heard as soon as its question appears (whatever autoSpeak says).
+  useEffect(() => {
+    if (listening && task && task.kind !== 'intro' && entry && !feedback) speak(entry.korean, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listening, task, entry]);
+
   /** Saves one event. `now` must be the same moment as the attempt's `at`. */
   const save = async (effects: Effect[], now = Date.now()) => {
     const r = await applyEvent(await getDb(), effects, { now, retention: settings.retention, sessionId: sessionId.current });
     return r.card;
   };
+
+  /** The side of the word an answer gives: the card's direction, or what listening asks for. */
+  const answerSide = (c: LearnCard): Direction => (listening ? listeningAnswerSide(prompt) : c.direction);
 
   const fail = (e: unknown) => Alert.alert(tr('error'), e instanceof Error ? e.message : String(e));
 
@@ -223,7 +237,7 @@ export default function Study() {
   const choose = (option: string) => {
     if (!shown || !card || feedback || busy) return;
     const e = shown.entry;
-    const right = checkChoice(e, card.direction, option).correct;
+    const right = checkChoice(e, answerSide(card), option).correct;
     commit({ correct: right, method: 'choice', given: option }, { correct: right, picked: option });
     if (settings.autoSpeak) speak(e.korean, true);
   };
@@ -234,7 +248,7 @@ export default function Study() {
     const given = dontKnow ? '' : typed;
     if (!dontKnow && given.trim() === '') return;
     if (settings.autoSpeak) speak(e.korean, true);
-    const r = checkKeyboard(e, card.direction, given, { strictSpacing: settings.strictSpacing });
+    const r = checkKeyboard(e, answerSide(card), given, { strictSpacing: settings.strictSpacing });
     if (r.correct || dontKnow || !r.canSelfAccept) {
       commit({ correct: r.correct, method: 'keyboard', typoCorrected: r.typo, given }, { correct: r.correct, typo: r.typo, dontKnow, given, diff: dontKnow ? undefined : (r.diff ?? undefined) });
       return;
@@ -443,15 +457,49 @@ export default function Study() {
     if (purpose === 'relearn') badge = tr('stepRelearn');
     if (session.kind === 'free') badge = tr('freeBadge');
     const recallMethod: RecallMethod = c.method && c.method !== 'choice' ? c.method : session.method;
+    const side = answerSide(c);
+    // Listening hides the word behind its sound until the answer; text prompts show one side.
+    const listenPrompt = (
+      <View style={styles.centered}>
+        <Pressable
+          onPress={() => speak(e.korean)}
+          accessibilityRole="button"
+          accessibilityLabel={tr('listen')}
+          style={[styles.playBig, { backgroundColor: t.primarySoft }]}>
+          <Icon name="headphones" size={48} color={t.primary} />
+        </Pressable>
+        <Row style={styles.wrapRow}>
+          <Btn kind="ghost" small icon="replay" title={tr('listenAgain')} onPress={() => speak(e.korean)} />
+          <Btn kind="ghost" small icon="speedometer-slow" title={tr('listenSlower')} onPress={() => speakKorean(e.korean, SLOW_RATE)} />
+        </Row>
+      </View>
+    );
+    const front = (opened: boolean) =>
+      listening ? (
+        opened ? (
+          <>
+            {korean()}
+            {divider}
+            {meaning}
+          </>
+        ) : (
+          listenPrompt
+        )
+      ) : dir === 'ko_ru' ? (
+        korean()
+      ) : (
+        meaning
+      );
+    const listenTitle = prompt === 'dictation' ? tr('stepDictation') : tr('stepListen');
 
     // ---------- Recognition ----------
     if (view.task.kind === 'recognize') {
-      title = dir === 'ko_ru' ? tr('stepRecognizeKoRu') : tr('stepRecognizeRuKo');
-      const list = options.current.get(c.key) ?? [];
-      const isRight = (o: string) => (dir === 'ko_ru' ? e.meanings.includes(o) : o === e.korean);
+      title = listening ? listenTitle : dir === 'ko_ru' ? tr('stepRecognizeKoRu') : tr('stepRecognizeRuKo');
+      const list = options.current.get(cardKey(c.entryId, side)) ?? [];
+      const isRight = (o: string) => (side === 'ko_ru' ? e.meanings.includes(o) : o === e.korean);
       content = (
         <>
-          <Card style={styles.card}>{dir === 'ko_ru' ? korean() : meaning}</Card>
+          <Card style={styles.card}>{front(!!feedback)}</Card>
           {list.map((o) => {
             const reveal = feedback && (isRight(o) || o === feedback.picked);
             const color = reveal ? (isRight(o) ? t.primary : t.danger) : t.border;
@@ -464,14 +512,14 @@ export default function Study() {
                 accessibilityLabel={o}
                 android_ripple={{ color: t.surfaceAlt }}
                 style={[styles.option, { borderColor: color, backgroundColor: reveal ? (isRight(o) ? t.primarySoft : t.dangerSoft) : t.surface }]}>
-                <Text style={[dir === 'ko_ru' ? styles.optionText : styles.optionKorean, { color: t.text }]}>{o}</Text>
+                <Text style={[side === 'ko_ru' ? styles.optionText : styles.optionKorean, { color: t.text }]}>{o}</Text>
                 {reveal ? <Icon name={isRight(o) ? 'check-circle' : 'close-circle'} color={color} /> : null}
               </Pressable>
             );
           })}
           {feedback ? (
             <>
-              {dir === 'ru_ko' ? <Card style={styles.card}>{korean(false)}</Card> : null}
+              {dir === 'ru_ko' && !listening ? <Card style={styles.card}>{korean(false)}</Card> : null}
               <Outcome feedback={feedback} interval={interval} />
             </>
           ) : null}
@@ -480,16 +528,16 @@ export default function Study() {
       footer = feedback ? <Btn title={tr('next')} disabled={busy} onPress={goNext} /> : null;
     } else if (recallMethod === 'self_grade') {
       // ---------- Self-assessed card: recall, show the answer, grade yourself ----------
-      title = dir === 'ko_ru' ? tr('stepSelfKoRu') : tr('stepSelfRuKo');
+      title = listening ? listenTitle : dir === 'ko_ru' ? tr('stepSelfKoRu') : tr('stepSelfRuKo');
       const grades = settings.detailedGrading ? SELF_GRADES_DETAILED : SELF_GRADES_SIMPLE;
       content = (
         <>
           <Card style={styles.card}>
-            {dir === 'ko_ru' ? korean() : meaning}
+            {front(revealed || !!feedback)}
             {revealed || feedback ? (
               <>
-                {divider}
-                {dir === 'ko_ru' ? meaning : korean()}
+                {listening ? null : divider}
+                {listening ? null : dir === 'ko_ru' ? meaning : korean()}
                 {example}
               </>
             ) : null}
@@ -510,15 +558,15 @@ export default function Study() {
       );
     } else {
       // ---------- Recall (training, review or relearning) ----------
-      title = dir === 'ko_ru' ? tr('stepRecallKoRu') : tr('stepRecallRuKo');
+      title = listening ? listenTitle : dir === 'ko_ru' ? tr('stepRecallKoRu') : tr('stepRecallRuKo');
       content = (
         <>
           <Card style={styles.card}>
-            {dir === 'ko_ru' ? korean() : meaning}
+            {front(!!feedback)}
             {feedback ? (
               <>
-                {divider}
-                {dir === 'ko_ru' ? meaning : korean()}
+                {listening ? null : divider}
+                {listening ? null : dir === 'ko_ru' ? meaning : korean()}
                 {example}
               </>
             ) : null}
@@ -528,7 +576,7 @@ export default function Study() {
               value={typed}
               onChangeText={setTyped}
               onSubmitEditing={() => submit()}
-              placeholder={dir === 'ko_ru' ? tr('answerPlaceholderKoRu') : tr('answerPlaceholderRuKo')}
+              placeholder={side === 'ko_ru' ? tr('answerPlaceholderKoRu') : tr('answerPlaceholderRuKo')}
               placeholderTextColor={t.textDim + '99'}
               accessibilityLabel={title}
               autoFocus
@@ -660,6 +708,7 @@ function Summary({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  playBig: { width: 112, height: 112, borderRadius: 56, alignItems: 'center', justifyContent: 'center', marginBottom: space.sm },
   flex: { flex: 1 },
   center: { textAlign: 'center' },
   header: { paddingHorizontal: space.sm, paddingRight: space.lg, gap: space.sm },

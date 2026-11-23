@@ -13,11 +13,12 @@ import { useLoad } from '../ui/useLoad';
 type Source = 'dicts' | 'entries' | 'hard' | 'today';
 type Dirs = 'both' | 'ko_ru' | 'ru_ko';
 type Method = 'keyboard' | 'self_grade' | 'choice';
+type Prompt = 'text' | 'audio' | 'dictation';
 
 const COUNTS = [10, 20, 50];
 
 export default function FreePractice() {
-  const params = useLocalSearchParams<{ source?: string }>();
+  const params = useLocalSearchParams<{ source?: string; prompt?: string }>();
   const t = useTheme();
   const tr = useT();
   const router = useRouter();
@@ -31,6 +32,8 @@ export default function FreePractice() {
   const [method, setMethod] = useState<Method>('keyboard');
   const [limit, setLimit] = useState(20);
   const [countAsReview, setCountAsReview] = useState(false);
+  const [prompt, setPrompt] = useState<Prompt>(params.prompt === 'audio' || params.prompt === 'dictation' ? params.prompt : 'text');
+  const listening = prompt !== 'text';
 
   const { data } = useLoad(async (db) => {
     const now = Date.now();
@@ -60,7 +63,8 @@ export default function FreePractice() {
       method,
       limit: String(source === 'entries' ? picked.length : limit),
       fails: String(attempts),
-      count: countAsReview && method !== 'choice' ? '1' : '0',
+      count: countAsReview && method !== 'choice' && !listening ? '1' : '0',
+      prompt,
     });
     router.push(`/study?${q.toString()}`);
   };
@@ -109,6 +113,9 @@ export default function FreePractice() {
 
       {source === 'hard' ? (
         <Card>
+          {data && data.hard.length > 0 ? (
+            <Btn kind="soft" small icon="playlist-play" title={tr('hardListenAll')} onPress={() => router.push(`/listen?source=hard&dicts=${dicts.join(',')}`)} />
+          ) : null}
           {data && data.hard.length === 0 ? <Body dim>{tr('hardNone')}</Body> : null}
           {data && data.hard.length > 0 ? <Text style={[styles.strong, { color: t.text }]}>{tr('hardCount', { n: data.hard.length })}</Text> : null}
           {data?.hard.slice(0, 8).map((w) => (
@@ -156,12 +163,22 @@ export default function FreePractice() {
         </>
       )}
 
-      <Section>{tr('freeDirection')}</Section>
-      <View style={styles.chips}>
-        <Chip label={tr('dirKoRu')} active={dirs === 'ko_ru'} onPress={() => setDirs('ko_ru')} />
-        <Chip label={tr('dirRuKo')} active={dirs === 'ru_ko'} onPress={() => setDirs('ru_ko')} />
-        <Chip label={tr('dirBoth')} active={dirs === 'both'} onPress={() => setDirs('both')} />
-      </View>
+      <Section>{tr('promptTitle')}</Section>
+      {option('text', prompt, setPrompt, tr('promptText'), tr('promptTextHint'))}
+      {option('audio', prompt, setPrompt, tr('promptAudio'), tr('promptAudioHint'))}
+      {option('dictation', prompt, setPrompt, tr('promptDictation'), tr('promptDictationHint'))}
+      {listening ? <Body dim>{tr('listeningNoSchedule')}</Body> : null}
+
+      {!listening ? (
+        <>
+          <Section>{tr('freeDirection')}</Section>
+          <View style={styles.chips}>
+            <Chip label={tr('dirKoRu')} active={dirs === 'ko_ru'} onPress={() => setDirs('ko_ru')} />
+            <Chip label={tr('dirRuKo')} active={dirs === 'ru_ko'} onPress={() => setDirs('ru_ko')} />
+            <Chip label={tr('dirBoth')} active={dirs === 'both'} onPress={() => setDirs('both')} />
+          </View>
+        </>
+      ) : null}
 
       <Section>{tr('answerMethod')}</Section>
       {option('keyboard', method, setMethod, tr('methodKeyboard'), tr('methodKeyboardHint'))}
@@ -178,6 +195,7 @@ export default function FreePractice() {
         <Body dim>{tr('freeAttemptsHint')}</Body>
       </Card>
 
+      {listening ? null : (
       <Card>
         <Row style={styles.between}>
           <Text style={[styles.flex, { color: method === 'choice' ? t.textDim : t.text, fontSize: 16 }]}>{tr('countAsReview')}</Text>
@@ -185,6 +203,7 @@ export default function FreePractice() {
         </Row>
         <Body dim>{tr('countAsReviewHint')}</Body>
       </Card>
+      )}
     </Screen>
   );
 }

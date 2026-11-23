@@ -407,11 +407,11 @@ class NamuTtsModule : Module() {
     }
 
     /** Starts playing a WAV file; resolves with its duration once playback has started. */
-    AsyncFunction("playFile") { file: String ->
+    AsyncFunction("playFile") { file: String, speed: Double? ->
       val f = path(file)
       if (!f.exists()) throw ModelFileMissing(f.name)
       try {
-        player.play(f)
+        player.play(f, (speed ?: 1.0).toFloat())
       } catch (e: Throwable) {
         throw CodedException("E_PLAYBACK", "Playback failed: ${e.message}", e)
       }

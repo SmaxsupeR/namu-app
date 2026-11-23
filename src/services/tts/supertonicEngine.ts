@@ -12,7 +12,7 @@ export interface EngineNative {
   isLoaded(dir: string, fold: boolean): Promise<boolean>;
   load(dir: string, threads: number, fold: boolean): Promise<{ loadMs: number }>;
   synthToFile(text: string, voice: string, steps: number, speed: number, seed: number, outBase: string, compress: boolean): Promise<{ audioSec: number; totalMs: number; format: 'wav' | 'm4a' }>;
-  playFile(file: string): Promise<number>;
+  playFile(file: string, speed?: number): Promise<number>;
   /** Whether compressed (AAC) files work on this phone. */
   aacUsable?(): boolean;
   /** An .m4a file failed to play: use WAV from now on. */
@@ -139,12 +139,12 @@ export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
         return false;
       }
     },
-    async play({ text, isCurrent }) {
+    async play({ text, rate, isCurrent }) {
       if (cache) {
         const file = await ensureAudio(text);
         if (!isCurrent()) return;
         try {
-          await deps.native.playFile(file);
+          await deps.native.playFile(file, rate);
         } catch (e) {
           // A compressed file this phone cannot play: go back to WAV and make it again next time.
           if (file.endsWith('.m4a')) {
@@ -162,7 +162,7 @@ export function createSupertonicEngine(deps: SupertonicDeps): SupertonicEngine {
       const base = `${deps.tmpDir}/live-${counter++ % 2}`;
       const r = await deps.native.synthToFile(text, ready.voice, SYNTH.steps, SYNTH.speed, SYNTH.seed, base, false);
       if (!isCurrent()) return;
-      await deps.native.playFile(`${base}.${r.format}`);
+      await deps.native.playFile(`${base}.${r.format}`, rate);
     },
     async stop() {
       deps.native.stopPlayback();

@@ -59,6 +59,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ title: tr('settings') }} />
         <Stack.Screen name="free" options={{ title: tr('freeTitle') }} />
+        <Stack.Screen name="listen" options={{ title: tr('hardListenAll') }} />
         <Stack.Screen name="study" options={{ headerShown: false, gestureEnabled: false }} />
       </Stack>
     </SafeAreaProvider>

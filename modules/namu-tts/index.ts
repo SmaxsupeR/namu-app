@@ -69,7 +69,8 @@ export declare class NamuTtsNative extends NativeModule<Events> {
   aacUsable(): boolean;
   markAacBroken(): void;
   release(): Promise<Memory>;
-  playFile(file: string): Promise<number>;
+  /** speed: 1 is normal; other values change the tempo, not the pitch. */
+  playFile(file: string, speed?: number): Promise<number>;
   stopPlayback(): void;
 }
 
