@@ -96,18 +96,24 @@ function shuffled<T>(items: T[], random: () => number): T[] {
   return a;
 }
 
-/** Tasks for a topic (none if it has no drill). */
-export function makeDrill(topic: GrammarTopic, count = 10, random: () => number = Math.random): DrillTask[] {
+/** Puts the words to ask first (missed last time) at the front, the rest shuffled. */
+function preferring<T extends { word: string }>(items: T[], first: readonly string[], random: () => number): T[] {
+  const head = first.map((w) => items.find((x) => x.word === w)).filter((x): x is T => !!x);
+  return [...head, ...shuffled(items.filter((x) => !head.includes(x)), random)];
+}
+
+/** Tasks for a topic (none if it has no drill). Words in `first` are asked first. */
+export function makeDrill(topic: GrammarTopic, count = 10, random: () => number = Math.random, first: readonly string[] = []): DrillTask[] {
   const d = topic.drill;
   if (!d) return [];
   if (d.kind === 'particle') {
-    return shuffled(DRILL_NOUNS, random)
+    return preferring(DRILL_NOUNS, first, random)
       .slice(0, count)
       .map((n) => ({ base: n.word, ru: n.ru, target: topic.pattern.replace(/^N/, '').split(' ')[0], answer: withParticle(n.word, d.particle as ParticleId) }));
   }
   const words = DRILL_WORDS.filter((w) => w.kind === 'verb' || !VERB_ONLY.includes(d.form));
   const out: DrillTask[] = [];
-  for (const w of shuffled(words, random)) {
+  for (const w of preferring(words, first, random)) {
     const c = conjugate(w.word, w.kind);
     const answer = c && form(c, d.form);
     if (!answer || answer === w.word) continue;

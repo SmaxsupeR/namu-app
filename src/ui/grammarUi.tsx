@@ -7,15 +7,52 @@ import { conjugate, type Conjugation, type FormId, type WordKind } from '../gram
 import { FORM_LABEL, FORM_TOPIC, IRREGULAR_LABEL } from '../grammar/labels';
 import { kindOf } from '../grammar/lookupKind';
 import { GROUPS, TOPICS, type GrammarTopic } from '../grammar/topics';
+import { dueGrammarTopics, getGrammarCards, type GrammarCard } from '../db/grammar';
 import { speakKorean } from '../services/speech';
-import { Body, Card, Chip, Field, Icon, IconBtn, Row } from './components';
-import { useT } from './i18n';
+import { Body, Btn, Card, Chip, Field, Icon, IconBtn, Row } from './components';
+import { useInterval, useT } from './i18n';
+import { useLoad } from './useLoad';
 import { radius, space, useTheme } from './theme';
+
+const DRILLABLE = TOPICS.filter((x) => x.drill).map((x) => x.id);
+
+/** Grammar review state: cards by topic and the topics due now. */
+export function useGrammarReview(): { cards: Map<string, GrammarCard>; due: string[] } | undefined {
+  return useLoad(async (db) => ({ cards: await getGrammarCards(db), due: await dueGrammarTopics(db, Date.now(), DRILLABLE) })).data;
+}
+
+/** Status line of one topic: not practised yet, due, or when it comes back. */
+export function GrammarStatus({ card }: { card: GrammarCard | undefined }) {
+  const t = useTheme();
+  const tr = useT();
+  const interval = useInterval();
+  const now = Date.now();
+  if (!card) return <Body dim>{tr('grammarStatusNew')}</Body>;
+  if (card.due <= now) return <Body style={{ color: t.warn }}>{tr('grammarStatusDue')}</Body>;
+  return <Body dim>{tr('grammarStatusNext', { t: interval(card.due - now) })}</Body>;
+}
+
+/** "Grammar to review: N" with a button; nothing when nothing is due. */
+export function GrammarDueCard() {
+  const t = useTheme();
+  const tr = useT();
+  const router = useRouter();
+  const g = useGrammarReview();
+  if (!g || g.due.length === 0) return null;
+  return (
+    <Card>
+      <Text style={[styles.dueLabel, { color: t.textDim }]}>{tr('grammarDueTitle')}</Text>
+      <Text style={[styles.dueCount, { color: t.text }]}>{tr('grammarDueCount', { n: g.due.length })}</Text>
+      <Btn small icon="school-outline" title={tr('grammarStartReview')} onPress={() => router.push('/grammar-drill?review=1')} />
+    </Card>
+  );
+}
 
 export function GrammarList() {
   const t = useTheme();
   const tr = useT();
   const router = useRouter();
+  const review = useGrammarReview();
   const [query, setQuery] = useState('');
   const [level, setLevel] = useState<1 | 2 | null>(null);
   const q = query.trim().toLowerCase();
@@ -26,6 +63,7 @@ export function GrammarList() {
   );
   return (
     <View style={styles.gap}>
+      <GrammarDueCard />
       <Field value={query} onChangeText={setQuery} placeholder={tr('grammarSearch')} autoCorrect={false} autoCapitalize="none" accessibilityLabel={tr('grammarSearch')} />
       <Row style={styles.wrap}>
         <Chip label={tr('all')} active={level === null} onPress={() => setLevel(null)} />
@@ -40,7 +78,7 @@ export function GrammarList() {
           <View key={g.id} style={styles.gap}>
             <Text style={[styles.section, { color: t.textDim }]}>{g.title}</Text>
             {items.map((x) => (
-              <TopicRow key={x.id} topic={x} onPress={() => router.push(`/grammar/${x.id}`)} />
+              <TopicRow key={x.id} topic={x} due={!!review?.due.includes(x.id)} onPress={() => router.push(`/grammar/${x.id}`)} />
             ))}
           </View>
         );
@@ -49,7 +87,7 @@ export function GrammarList() {
   );
 }
 
-function TopicRow({ topic, onPress }: { topic: GrammarTopic; onPress: () => void }) {
+function TopicRow({ topic, due, onPress }: { topic: GrammarTopic; due: boolean; onPress: () => void }) {
   const t = useTheme();
   const tr = useT();
   return (
@@ -65,7 +103,7 @@ function TopicRow({ topic, onPress }: { topic: GrammarTopic; onPress: () => void
           {topic.summary}
         </Text>
       </View>
-      {topic.drill ? <Icon name="pencil-box-outline" color={t.primary} /> : null}
+      {topic.drill ? <Icon name={due ? 'clock-alert-outline' : 'pencil-box-outline'} color={due ? t.warn : t.primary} /> : null}
       {topic.level === 2 ? <Text style={[styles.badge, { color: t.textDim, borderColor: t.border }]}>{tr('levelIntermediate')}</Text> : null}
       <Icon name="chevron-right" color={t.textDim} />
     </Pressable>
@@ -153,6 +191,8 @@ export function Conjugator({ initial = '', initialKind }: { initial?: string; in
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  dueLabel: { fontSize: 13, fontWeight: '600' },
+  dueCount: { fontSize: 18, fontWeight: '700', marginBottom: space.sm },
   gap: { gap: space.sm },
   wrap: { flexWrap: 'wrap', gap: space.sm },
   section: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginTop: space.sm },

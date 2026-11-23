@@ -1073,7 +1073,7 @@ export interface Backup {
   tables: Record<string, Record<string, string | number | null>[]>;
 }
 
-const PRIMARY_KEYS: Record<string, string[]> = { entry_tags: ['entry_id', 'tag'], user_preferences: ['key'], acquisition: ['entry_id', 'direction'] };
+const PRIMARY_KEYS: Record<string, string[]> = { entry_tags: ['entry_id', 'tag'], user_preferences: ['key'], acquisition: ['entry_id', 'direction'], grammar_cards: ['topic_id'] };
 /** Values for NOT NULL columns that older backups do not have, by table.column. */
 const COLUMN_DEFAULTS: Record<string, string | number> = {
   'practice_attempts.self_accepted': 0,

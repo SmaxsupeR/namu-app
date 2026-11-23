@@ -9,6 +9,7 @@ import { topicById } from '../../grammar/topics';
 import { speakKorean } from '../../services/speech';
 import { Body, Btn, Card, Chip, Empty, IconBtn, Row, Screen } from '../../ui/components';
 import { useT } from '../../ui/i18n';
+import { GrammarStatus, useGrammarReview } from '../../ui/grammarUi';
 import { space, useTheme } from '../../ui/theme';
 
 export default function GrammarTopicScreen() {
@@ -17,6 +18,7 @@ export default function GrammarTopicScreen() {
   const tr = useT();
   const router = useRouter();
   const topic = topicById(id);
+  const review = useGrammarReview();
   if (!topic) return <Empty icon="book-alert-outline" title={tr('nothingFound')} />;
 
   // A few words in this form, built by the conjugator, as a quick table.
@@ -35,6 +37,7 @@ export default function GrammarTopicScreen() {
       <Text style={[styles.pattern, { color: t.primary }]}>{topic.pattern}</Text>
       <Text style={[styles.title, { color: t.text }]}>{topic.title}</Text>
       <Body dim>{topic.summary}</Body>
+      {drill && review ? <GrammarStatus card={review.cards.get(topic.id)} /> : null}
       {topic.body.map((p, i) => (
         <Text key={i} style={[styles.p, { color: t.text }]}>
           {p}

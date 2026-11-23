@@ -237,6 +237,39 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE tts_cache ADD COLUMN fmt TEXT NOT NULL DEFAULT 'wav' CHECK (fmt IN ('wav', 'm4a'));
   `,
+  // v7: grammar topics are reviewed with FSRS too, one card per topic, apart from word
+  // cards (which belong to entries). missed = JSON list of drill words answered wrong last
+  // time, asked first next time. History has no foreign keys, like review_history.
+  `
+  CREATE TABLE grammar_cards (
+    topic_id TEXT PRIMARY KEY NOT NULL,
+    due INTEGER NOT NULL,
+    stability REAL NOT NULL,
+    difficulty REAL NOT NULL,
+    elapsed_days REAL NOT NULL,
+    scheduled_days REAL NOT NULL,
+    learning_steps INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    lapses INTEGER NOT NULL,
+    state INTEGER NOT NULL,
+    last_review INTEGER,
+    missed TEXT NOT NULL DEFAULT '[]'
+  );
+  CREATE INDEX idx_grammar_due ON grammar_cards(due);
+  CREATE TABLE grammar_history (
+    id TEXT PRIMARY KEY NOT NULL,
+    topic_id TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    correct INTEGER NOT NULL,
+    total INTEGER NOT NULL,
+    state INTEGER NOT NULL,
+    due INTEGER NOT NULL,
+    stability REAL NOT NULL,
+    difficulty REAL NOT NULL,
+    reviewed_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_grammar_history_time ON grammar_history(reviewed_at);
+  `,
 ];
 
 /** Columns of every table, in backup order (parents before children). */
@@ -254,6 +287,8 @@ export const TABLES: Record<string, string[]> = {
   review_history: ['id', 'entry_id', 'skill', 'session_id', 'rating', 'state', 'due', 'stability', 'difficulty', 'elapsed_days', 'scheduled_days', 'reviewed_at', 'duration_ms', 'event_id'],
   practice_attempts: ['id', 'session_id', 'entry_id', 'skill', 'mode', 'is_correct', 'rating', 'answer_given', 'hints_used', 'duration_ms', 'created_at', 'self_accepted', 'method', 'learning_skill', 'session_kind', 'typo_corrected'],
   user_preferences: ['key', 'value'],
+  grammar_cards: ['topic_id', 'due', 'stability', 'difficulty', 'elapsed_days', 'scheduled_days', 'learning_steps', 'reps', 'lapses', 'state', 'last_review', 'missed'],
+  grammar_history: ['id', 'topic_id', 'rating', 'correct', 'total', 'state', 'due', 'stability', 'difficulty', 'reviewed_at'],
 };
 
 /** Applies pending migrations. Each one runs in its own transaction. */

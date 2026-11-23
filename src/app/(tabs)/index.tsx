@@ -6,6 +6,7 @@ import { Bar, Body, Btn, Card, Empty, Icon, IconBtn, Row, Screen, Section, Title
 import { useT, type StringKey } from '../../ui/i18n';
 import { space, useTheme } from '../../ui/theme';
 import { useLoad } from '../../ui/useLoad';
+import { GrammarDueCard } from '../../ui/grammarUi';
 
 function greeting(hour: number): StringKey {
   if (hour < 5) return 'greetNight';
@@ -100,6 +101,8 @@ export default function Home() {
         <Tile label={tr('statStable')} value={overview.stableWords} color={t.primary} />
         <Tile label={tr('statWords')} value={overview.totalWords} color={t.text} />
       </Row>
+
+      <GrammarDueCard />
 
       <Section>{tr('recentDictionaries')}</Section>
       {dictionaries.slice(0, 3).map((d) => (
