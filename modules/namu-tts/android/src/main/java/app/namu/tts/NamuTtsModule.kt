@@ -35,6 +35,49 @@ class NamuTtsModule : Module() {
 
   private fun path(p: String) = File(p.removePrefix("file://"))
 
+  // The dictionary audio database stays open between calls: opening it for every
+  // word cost time and, now and then, failed, which sent the word to the phone voice.
+  private val dictLock = Any()
+  private var dictDb: android.database.sqlite.SQLiteDatabase? = null
+  private var dictPath: String? = null
+
+  private fun closeDict() {
+    runCatching { dictDb?.close() }
+    dictDb = null
+    dictPath = null
+  }
+
+  private fun openDict(db: String): android.database.sqlite.SQLiteDatabase? {
+    val f = path(db)
+    if (dictPath == f.absolutePath && dictDb?.isOpen == true) return dictDb
+    closeDict()
+    if (!f.isFile) return null
+    val d = android.database.sqlite.SQLiteDatabase.openDatabase(
+      f.absolutePath, null,
+      android.database.sqlite.SQLiteDatabase.OPEN_READONLY or android.database.sqlite.SQLiteDatabase.NO_LOCALIZED_COLLATORS,
+    )
+    dictDb = d
+    dictPath = f.absolutePath
+    return d
+  }
+
+  /** Runs a query on the pack; one retry with a fresh connection if the first try fails. */
+  private fun <T> withDict(db: String, block: (android.database.sqlite.SQLiteDatabase) -> T): T? = synchronized(dictLock) {
+    try {
+      openDict(db)?.let(block)
+    } catch (e: Throwable) {
+      Log.w("NamuTts", "dictionary audio: ${e.javaClass.simpleName}, retrying")
+      closeDict()
+      openDict(db)?.let(block)
+    }
+  }
+
+  private fun dictHas(db: String, text: String): Boolean =
+    withDict(db) { d -> d.rawQuery("SELECT 1 FROM audio WHERE text = ?", arrayOf(text)).use { it.moveToFirst() } } ?: false
+
+  private fun dictBlob(db: String, text: String): ByteArray? =
+    withDict(db) { d -> d.rawQuery("SELECT data FROM audio WHERE text = ?", arrayOf(text)).use { c -> if (c.moveToFirst()) c.getBlob(0) else null } }
+
   private fun context(): Context = appContext.reactContext ?: throw CodedException("E_CONTEXT", "Android context unavailable", null)
 
   private fun memory(): Map<String, Any?> {
@@ -92,6 +135,7 @@ class NamuTtsModule : Module() {
       callbacks?.let { appContext.reactContext?.applicationContext?.unregisterComponentCallbacks(it) }
       player.stop()
       releaseEngine()
+      synchronized(dictLock) { closeDict() }
     }
 
     /** App-private storage that survives updates and is left out of Android cloud backup. */
@@ -254,41 +298,28 @@ class NamuTtsModule : Module() {
      * `out`. Returns false when the text is not there. Read-only; the text is not logged.
      */
     AsyncFunction("dictAudio") { db: String, text: String, out: String ->
-      val f = path(db)
-      if (!f.isFile) return@AsyncFunction false
-      val sql = android.database.sqlite.SQLiteDatabase.openDatabase(f.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
-      try {
-        sql.rawQuery("SELECT data FROM audio WHERE text = ?", arrayOf(text)).use { c ->
-          if (!c.moveToFirst()) return@AsyncFunction false
-          val bytes = c.getBlob(0)
-          val o = path(out)
-          o.parentFile?.mkdirs()
-          val tmp = File(o.parentFile, "${o.name}.part")
-          tmp.writeBytes(bytes)
-          if (!tmp.renameTo(o)) {
-            tmp.delete()
-            return@AsyncFunction false
-          }
-          true
-        }
-      } finally {
-        sql.close()
+      val bytes = dictBlob(db, text) ?: return@AsyncFunction false
+      val o = path(out)
+      o.parentFile?.mkdirs()
+      val tmp = File(o.parentFile, "${o.name}.part")
+      tmp.writeBytes(bytes)
+      if (!tmp.renameTo(o)) {
+        tmp.delete()
+        return@AsyncFunction false
       }
+      true
     }
 
-    /** Whether the dictionary audio database has this text. */
-    AsyncFunction("dictAudioHas") { db: String, text: String ->
-      val f = path(db)
-      if (!f.isFile) return@AsyncFunction false
-      val sql = android.database.sqlite.SQLiteDatabase.openDatabase(f.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
-      try {
-        sql.rawQuery("SELECT 1 FROM audio WHERE text = ?", arrayOf(text)).use { it.moveToFirst() }
-      } finally {
-        sql.close()
-      }
-    }
+    AsyncFunction("dictAudioHas") { db: String, text: String -> dictHas(db, text) }
 
-    AsyncFunction("deleteTree") { file: String -> path(file).deleteRecursively() }
+    AsyncFunction("deleteTree") { file: String ->
+      // The pack database may be open: close it before its file goes.
+      synchronized(dictLock) {
+        val f = path(file).absolutePath
+        if (dictPath != null && (dictPath == f || dictPath!!.startsWith("$f/"))) closeDict()
+      }
+      path(file).deleteRecursively()
+    }
 
     AsyncFunction("listDir") { dir: String -> path(dir).list()?.toList() ?: emptyList<String>() }
 

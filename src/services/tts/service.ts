@@ -52,7 +52,8 @@ export function createSpeechService(opts: SpeechServiceOptions): SpeechService {
         if (!e.hasAudio) return true;
         try {
           return await e.hasAudio(text);
-        } catch {
+        } catch (err) {
+          log('tts.check_failed', { engine: e.id, length: text.length, error: err instanceof Error ? err.message : String(err) });
           return false;
         }
       };
@@ -82,6 +83,7 @@ export function createSpeechService(opts: SpeechServiceOptions): SpeechService {
         if (!(await ready(engine))) continue;
         if (!(await instant(engine))) {
           // Only an engine that can make audio is worth waiting for (pre-made audio cannot).
+          if (!engine.prefetch) log('tts.not_in_pack', { engine: engine.id, length: text.length });
           if (engine.prefetch) {
             slow.push(engine);
             engine.prefetch(text);
@@ -90,7 +92,10 @@ export function createSpeechService(opts: SpeechServiceOptions): SpeechService {
         }
         if (token !== generation) return { ok: false, reason: 'superseded' };
         const r = await attempt(engine);
-        if (r) return r;
+        if (r) {
+          if (r.ok && r.engine === 'system' && order.length > 1) log('tts.phone_voice', { engine: 'system', length: text.length });
+          return r;
+        }
       }
       // Second pass: no other voice could speak, so wait for the slow one.
       for (const engine of slow) {

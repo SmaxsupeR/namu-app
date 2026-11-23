@@ -120,4 +120,44 @@ describe('dictionary audio engine', () => {
     expect(await make('M1').engine.isReady()).toBe(false);
     expect(await make('F1', false).engine.isReady()).toBe(false);
   });
+  it('tries once more when reading or playing fails now and then', async () => {
+    let hasFails = 1;
+    let playFails = 1;
+    const played: string[] = [];
+    const engine = createDictAudioEngine({
+      native: {
+        dictAudioHas: async () => {
+          if (hasFails-- > 0) throw new Error('SQLiteException');
+          return true;
+        },
+        dictAudio: async () => true,
+        playFile: async (f) => {
+          if (playFails-- > 0) throw new Error('E_PLAYBACK');
+          played.push(f);
+          return 1;
+        },
+        stopPlayback: () => {},
+      },
+      installed: async () => ({ id: 'a', version: 1, voice: 'F1', count: 1, bytes: 1, file: '/d.db' }),
+      voice: () => 'F1',
+      key: (t) => t,
+      tmpDir: '/t',
+    });
+    expect(await engine.hasAudio!('학교')).toBe(true);
+    await engine.play({ text: '학교', rate: 1, isCurrent: () => true });
+    expect(played).toEqual(['/t/dict-1.webm']);
+  });
+
+  it('does not retry a word that is not in the pack', async () => {
+    let calls = 0;
+    const engine = createDictAudioEngine({
+      native: { dictAudioHas: async () => false, dictAudio: async () => (calls++, false), playFile: async () => 1, stopPlayback: () => {} },
+      installed: async () => ({ id: 'a', version: 1, voice: 'F1', count: 1, bytes: 1, file: '/d.db' }),
+      voice: () => 'F1',
+      key: (t) => t,
+      tmpDir: '/t',
+    });
+    await expect(engine.play({ text: '사과', rate: 1, isCurrent: () => true })).rejects.toThrow('E_NOT_FOUND');
+    expect(calls).toBe(1);
+  });
 });

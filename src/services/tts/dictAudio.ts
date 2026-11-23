@@ -199,15 +199,27 @@ export function createDictAudioEngine(deps: {
     },
     async hasAudio(text) {
       const p = await usable();
-      return !!p && (await deps.native.dictAudioHas(p.file, deps.key(text)));
+      if (!p) return false;
+      const key = deps.key(text);
+      // A rare failed read must not send the word to the phone voice: ask again once.
+      return deps.native.dictAudioHas(p.file, key).catch(() => deps.native.dictAudioHas(p.file, key));
     },
     async play({ text, isCurrent }) {
       const p = await usable();
       if (!p) throw new Error('E_UNAVAILABLE');
-      const out = `${deps.tmpDir}/dict-${counter++ % 2}.webm`;
-      if (!(await deps.native.dictAudio(p.file, deps.key(text), out))) throw new Error('E_NOT_FOUND');
-      if (!isCurrent()) return;
-      await deps.native.playFile(out);
+      const key = deps.key(text);
+      const once = async () => {
+        const out = `${deps.tmpDir}/dict-${counter++ % 2}.webm`;
+        if (!(await deps.native.dictAudio(p.file, key, out))) throw new Error('E_NOT_FOUND');
+        if (!isCurrent()) return;
+        await deps.native.playFile(out);
+      };
+      try {
+        await once();
+      } catch (e) {
+        if (!isCurrent() || (e instanceof Error && e.message === 'E_NOT_FOUND')) throw e;
+        await once();
+      }
     },
     async stop() {
       deps.native.stopPlayback();

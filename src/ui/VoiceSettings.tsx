@@ -9,6 +9,7 @@ import type { Settings } from '../state/store';
 import { cancelVoicePack, downloadVoicePack, loadOffer, refreshVoicePack, removeVoicePack, useVoicePack } from '../state/voicePack';
 import { Bar, Body, Btn, Card, Chip, Row } from './components';
 import { DictAudioCard } from './DictAudioCard';
+import { SpeechLogCard } from './SpeechLogCard';
 import { StorageCard } from './StorageCard';
 import { useT, type StringKey } from './i18n';
 import { space, useTheme } from './theme';
@@ -189,6 +190,7 @@ export function VoiceSettings({ settings, update }: { settings: Settings; update
       {neuralSupported && state?.status === 'ready' && settings.ttsEngine !== 'system' ? <QueueCard prepareAll={settings.ttsPrepareAll} onPrepareAll={(v) => update('ttsPrepareAll', v)} /> : null}
       <DictAudioCard settings={settings} />
       <StorageCard settings={settings} update={update} />
+      <SpeechLogCard />
       <Body dim>{tr('voiceLicense')}</Body>
     </>
   );

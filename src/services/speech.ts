@@ -13,6 +13,7 @@ import { VOICES_INDEX_URL } from './tts/pack';
 import type { Priority } from './tts/queuePolicy';
 import { createSynthQueue, type SynthQueue } from './tts/synthQueue';
 import { useApp } from '../state/store';
+import { logSpeech } from '../state/speechLog';
 import { createPackManager, type PackIO } from './tts/packManager';
 import type { PackState } from './tts/packManager';
 import { createSpeechService } from './tts/service';
@@ -231,6 +232,7 @@ const engines: TtsEngine[] = [...(dictEngine ? [dictEngine] : []), ...(neural ? 
 const service = createSpeechService({
   engines: () => engines,
   preference: () => useApp.getState().settings.ttsEngine,
+  log: logSpeech,
 });
 
 /** Dictionary notation (비위(가) 사납다, 거리에/로) is read as its main variant; sentences stay as they are. */

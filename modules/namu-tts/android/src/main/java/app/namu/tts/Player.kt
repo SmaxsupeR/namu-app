@@ -34,7 +34,17 @@ class Player {
     return pcm.samples.size.toDouble() / pcm.sampleRate
   }
 
-  private fun playCompressed(file: File): Double {
+  /** MediaPlayer now and then fails to open a file it plays fine a moment later: try once more. */
+  private fun playCompressed(file: File): Double =
+    try {
+      playCompressedOnce(file)
+    } catch (e: Throwable) {
+      android.util.Log.w("NamuTts", "playback: ${e.javaClass.simpleName}, retrying")
+      Thread.sleep(60)
+      playCompressedOnce(file)
+    }
+
+  private fun playCompressedOnce(file: File): Double {
     val m = MediaPlayer()
     try {
       m.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())

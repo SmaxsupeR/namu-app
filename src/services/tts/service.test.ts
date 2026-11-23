@@ -180,4 +180,13 @@ describe('pre-made dictionary audio in the service', () => {
     const sys = fake('system');
     expect(await service([pack.engine, sys.engine], 'system').speak('학교')).toEqual({ ok: true, engine: 'system' });
   });
+  it('logs why a word missed the pack and went to the phone voice, without the word', async () => {
+    const pack = fake('dictaudio');
+    pack.engine.hasAudio = async () => false;
+    const sys = fake('system');
+    const events: { e: string; d?: Record<string, unknown> }[] = [];
+    await service([pack.engine, sys.engine], 'auto', (e, d) => void events.push({ e, d })).speak('학교');
+    expect(events.map((x) => x.e)).toEqual(['tts.not_in_pack', 'tts.phone_voice']);
+    expect(JSON.stringify(events)).not.toContain('학교');
+  });
 });
