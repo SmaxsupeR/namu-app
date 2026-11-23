@@ -47,3 +47,4 @@ example
 
 # Build output of local native modules
 modules/*/android/build/
+__pycache__/
