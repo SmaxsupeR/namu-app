@@ -1,6 +1,8 @@
 // App settings, kept in memory and saved to the user_preferences table.
 import { create } from 'zustand';
 import type { Direction } from '../core/learning';
+import { ENGINE_PREFERENCES, type EnginePreference } from '../services/tts/types';
+import { DEFAULT_VOICE, isVoiceId, type VoiceId } from '../services/tts/voices';
 
 export type Language = 'ru' | 'en';
 /** Which directions are practised: both, or only one of them. */
@@ -9,6 +11,9 @@ export type DirectionSetting = 'both' | Direction;
 export function directionList(setting: DirectionSetting): Direction[] {
   return setting === 'both' ? ['ko_ru', 'ru_ko'] : [setting];
 }
+
+/** Choices for the size of the neural-voice audio cache. */
+export const CACHE_LIMITS_MB = [100, 250, 500, 1000];
 
 export interface Settings {
   language: Language;
@@ -25,6 +30,14 @@ export interface Settings {
   detailedGrading: boolean;
   /** Free practice: attempts per word before it leaves the session. */
   practiceAttempts: number;
+  /** Which voice speaks Korean: the neural one when installed, or the phone's own. */
+  ttsEngine: EnginePreference;
+  /** Neural voice: F1–F5 (female) or M1–M5 (male). */
+  ttsVoice: VoiceId;
+  /** Prepare neural audio for every word ahead of time (asked once; uses battery and storage). */
+  ttsPrepareAll: boolean;
+  /** Space neural-voice recordings may take, in MB. */
+  ttsCacheLimitMb: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -39,6 +52,10 @@ export const DEFAULT_SETTINGS: Settings = {
   answerMethod: 'keyboard',
   detailedGrading: false,
   practiceAttempts: 3,
+  ttsEngine: 'auto',
+  ttsVoice: DEFAULT_VOICE,
+  ttsPrepareAll: false,
+  ttsCacheLimitMb: 250,
 };
 
 export function settingsFromPrefs(prefs: Record<string, string>): Settings {
@@ -50,6 +67,9 @@ export function settingsFromPrefs(prefs: Record<string, string>): Settings {
       if (typeof value !== typeof DEFAULT_SETTINGS[key]) continue;
       if (key === 'directions' && !['both', 'ko_ru', 'ru_ko'].includes(value)) continue;
       if (key === 'answerMethod' && !['keyboard', 'self_grade'].includes(value)) continue;
+      if (key === 'ttsEngine' && !ENGINE_PREFERENCES.includes(value)) continue;
+      if (key === 'ttsVoice' && !isVoiceId(value)) continue;
+      if (key === 'ttsCacheLimitMb' && !CACHE_LIMITS_MB.includes(value)) continue;
       if (key === 'practiceAttempts' && !(value >= 1 && value <= 10)) continue;
       (out as unknown as Record<string, unknown>)[key] = value;
     } catch {

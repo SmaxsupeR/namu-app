@@ -21,6 +21,7 @@ export default function TabsLayout() {
       }}>
       <Tabs.Screen name="index" options={{ title: tr('tabHome'), tabBarIcon: icon('home-variant') }} />
       <Tabs.Screen name="dictionaries" options={{ title: tr('tabDictionaries'), tabBarIcon: icon('book-open-variant') }} />
+      <Tabs.Screen name="translate" options={{ title: tr('tabTranslate'), tabBarIcon: icon('translate') }} />
       <Tabs.Screen name="practice" options={{ title: tr('tabPractice'), tabBarIcon: icon('cards') }} />
       <Tabs.Screen name="progress" options={{ title: tr('tabProgress'), tabBarIcon: icon('chart-bar') }} />
     </Tabs>

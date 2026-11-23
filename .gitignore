@@ -44,3 +44,6 @@ example
 
 # build output
 /build
+
+# Build output of local native modules
+modules/*/android/build/

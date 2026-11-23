@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'app.namu.tts'
+version = '0.1.0'
+
+android {
+  namespace "app.namu.tts"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+    // Keeps ONNX Runtime's JNI classes from R8 (fix from the TTS lab, commit de097bc).
+    consumerProguardFiles 'consumer-rules.pro'
+  }
+}
+
+dependencies {
+  // Official ONNX Runtime for Android (CPU), pinned.
+  implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.32.0'
+}

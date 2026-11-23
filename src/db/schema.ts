@@ -201,6 +201,75 @@ export const MIGRATIONS: string[] = [
   -- Cards stored so far were scheduled with this FSRS configuration (see src/core/fsrsConfig.ts).
   INSERT INTO user_preferences (key, value) VALUES ('fsrsConfigId', '"namu-fsrs-1"') ON CONFLICT(key) DO NOTHING;
   `,
+  // v4: audio made by the neural voice. The file of a row is always <cache dir>/<key>.wav;
+  // no path is stored, so nothing restored or edited can point the app at another file.
+  // Not part of backups: audio can always be made again.
+  `
+  CREATE TABLE tts_cache (
+    key TEXT PRIMARY KEY CHECK (length(key) = 64),
+    text TEXT NOT NULL,
+    pack TEXT NOT NULL,
+    voice TEXT NOT NULL,
+    bytes INTEGER NOT NULL,
+    duration_ms INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER NOT NULL,
+    uses INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX ix_tts_cache_lru ON tts_cache(last_used_at);
+  `,
+  // v5: texts waiting to be synthesized by the neural voice, so audio is ready before it is
+  // needed. Survives restarts; not part of backups. id = SHA-256 of the text as spoken.
+  `
+  CREATE TABLE tts_queue (
+    id TEXT PRIMARY KEY CHECK (length(id) = 64),
+    text TEXT NOT NULL,
+    priority INTEGER NOT NULL CHECK (priority BETWEEN 0 AND 3),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_at INTEGER NOT NULL,
+    failed INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX ix_tts_queue_next ON tts_queue(failed, next_at, priority);
+  `,
+  // v6: cached audio may be compressed (AAC, .m4a) or WAV; the file is <key>.<fmt>.
+  `
+  ALTER TABLE tts_cache ADD COLUMN fmt TEXT NOT NULL DEFAULT 'wav' CHECK (fmt IN ('wav', 'm4a'));
+  `,
+  // v7: grammar topics are reviewed with FSRS too, one card per topic, apart from word
+  // cards (which belong to entries). missed = JSON list of drill words answered wrong last
+  // time, asked first next time. History has no foreign keys, like review_history.
+  `
+  CREATE TABLE grammar_cards (
+    topic_id TEXT PRIMARY KEY NOT NULL,
+    due INTEGER NOT NULL,
+    stability REAL NOT NULL,
+    difficulty REAL NOT NULL,
+    elapsed_days REAL NOT NULL,
+    scheduled_days REAL NOT NULL,
+    learning_steps INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    lapses INTEGER NOT NULL,
+    state INTEGER NOT NULL,
+    last_review INTEGER,
+    missed TEXT NOT NULL DEFAULT '[]'
+  );
+  CREATE INDEX idx_grammar_due ON grammar_cards(due);
+  CREATE TABLE grammar_history (
+    id TEXT PRIMARY KEY NOT NULL,
+    topic_id TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    correct INTEGER NOT NULL,
+    total INTEGER NOT NULL,
+    state INTEGER NOT NULL,
+    due INTEGER NOT NULL,
+    stability REAL NOT NULL,
+    difficulty REAL NOT NULL,
+    reviewed_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_grammar_history_time ON grammar_history(reviewed_at);
+  `,
 ];
 
 /** Columns of every table, in backup order (parents before children). */
@@ -218,6 +287,8 @@ export const TABLES: Record<string, string[]> = {
   review_history: ['id', 'entry_id', 'skill', 'session_id', 'rating', 'state', 'due', 'stability', 'difficulty', 'elapsed_days', 'scheduled_days', 'reviewed_at', 'duration_ms', 'event_id'],
   practice_attempts: ['id', 'session_id', 'entry_id', 'skill', 'mode', 'is_correct', 'rating', 'answer_given', 'hints_used', 'duration_ms', 'created_at', 'self_accepted', 'method', 'learning_skill', 'session_kind', 'typo_corrected'],
   user_preferences: ['key', 'value'],
+  grammar_cards: ['topic_id', 'due', 'stability', 'difficulty', 'elapsed_days', 'scheduled_days', 'learning_steps', 'reps', 'lapses', 'state', 'last_review', 'missed'],
+  grammar_history: ['id', 'topic_id', 'rating', 'correct', 'total', 'state', 'due', 'stability', 'difficulty', 'reviewed_at'],
 };
 
 /** Applies pending migrations. Each one runs in its own transaction. */

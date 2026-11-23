@@ -6,6 +6,7 @@ import { useApp, type Settings } from '../state/store';
 import { Body, Btn, Card, Chip, IconBtn, Row, Screen, Section } from '../ui/components';
 import { useT } from '../ui/i18n';
 import { space, useTheme } from '../ui/theme';
+import { VoiceSettings } from '../ui/VoiceSettings';
 
 export default function SettingsScreen() {
   const t = useTheme();
@@ -97,6 +98,9 @@ export default function SettingsScreen() {
         {toggle(tr('autoSpeak'), 'autoSpeak')}
         {toggle(tr('detailedGrading'), 'detailedGrading', tr('detailedGradingHint'))}
       </Card>
+
+      <Section>{tr('voiceTitle')}</Section>
+      <VoiceSettings settings={settings} update={update} />
 
       <Section>{tr('data')}</Section>
       <Card>
