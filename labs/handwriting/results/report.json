@@ -1,0 +1,106 @@
+{
+ "vocab_size": 5200,
+ "sets": {
+  "real-lines": 300,
+  "real-words": 1500,
+  "font-words": 1500
+ },
+ "models": {
+  "base": {
+   "size_mb": 13.4,
+   "real-lines": {
+    "n": 300,
+    "exact": 0.0633,
+    "cer": 0.3197,
+    "ms_median": 31.6,
+    "ms_p90": 56.1
+   },
+   "real-words": {
+    "n": 1500,
+    "exact": 0.358,
+    "cer": 0.3568,
+    "ms_median": 7.0,
+    "ms_p90": 10.5,
+    "pick4": 0.9782,
+    "pick4_n": 1470,
+    "verify_accept_at_far1": 0.9503,
+    "verify_threshold_far1": 6.945,
+    "verify_accept_at_far5": 0.968,
+    "verify_threshold_far5": 8.53
+   },
+   "font-words": {
+    "n": 1500,
+    "exact": 0.9653,
+    "cer": 0.0186,
+    "ms_median": 7.0,
+    "ms_p90": 11.3,
+    "pick4": 0.9987,
+    "pick4_n": 1500,
+    "verify_accept_at_far1": 0.9987,
+    "verify_threshold_far1": 9.44,
+    "verify_accept_at_far5": 0.9993,
+    "verify_threshold_far5": 13.292
+   },
+   "per-font-exact": {
+    "Dokdo-Regular": 0.9867,
+    "EastSeaDokdo-Regular": 0.9667,
+    "Gaegu-Regular": 1.0,
+    "GamjaFlower-Regular": 0.98,
+    "HiMelody-Regular": 0.9667,
+    "NanumBrushScript-Regular": 0.8733,
+    "NanumPenScript-Regular": 0.9133,
+    "PoorStory-Regular": 1.0,
+    "SingleDay-Regular": 0.9933,
+    "YeonSung-Regular": 0.9733
+   }
+  },
+  "hw": {
+   "size_mb": 14.8,
+   "real-lines": {
+    "n": 300,
+    "exact": 0.1733,
+    "cer": 0.1664,
+    "ms_median": 30.3,
+    "ms_p90": 56.0
+   },
+   "real-words": {
+    "n": 1500,
+    "exact": 0.636,
+    "cer": 0.1545,
+    "ms_median": 6.8,
+    "ms_p90": 10.6,
+    "pick4": 0.9837,
+    "pick4_n": 1470,
+    "verify_accept_at_far1": 0.9769,
+    "verify_threshold_far1": 9.98,
+    "verify_accept_at_far5": 0.9796,
+    "verify_threshold_far5": 12.523
+   },
+   "font-words": {
+    "n": 1500,
+    "exact": 0.988,
+    "cer": 0.0053,
+    "ms_median": 7.0,
+    "ms_p90": 11.6,
+    "pick4": 1.0,
+    "pick4_n": 1500,
+    "verify_accept_at_far1": 1.0,
+    "verify_threshold_far1": 11.145,
+    "verify_accept_at_far5": 1.0,
+    "verify_threshold_far5": 15.749
+   },
+   "per-font-exact": {
+    "Dokdo-Regular": 0.9533,
+    "EastSeaDokdo-Regular": 0.9933,
+    "Gaegu-Regular": 1.0,
+    "GamjaFlower-Regular": 1.0,
+    "HiMelody-Regular": 1.0,
+    "NanumBrushScript-Regular": 0.96,
+    "NanumPenScript-Regular": 0.9867,
+    "PoorStory-Regular": 1.0,
+    "SingleDay-Regular": 0.9933,
+    "YeonSung-Regular": 0.9933
+   }
+  }
+ }
+}

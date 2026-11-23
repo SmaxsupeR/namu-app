@@ -1,0 +1,38 @@
+{
+ "base": {
+  "real-words": {
+   "n": 1002,
+   "pick_near": 0.9301,
+   "verify_accept_at_far1": 0.5619,
+   "verify_accept_at_far5": 0.7226,
+   "greedy_only_accept": 0.3633,
+   "greedy_only_false_accept": 0.002
+  },
+  "font-words": {
+   "n": 1500,
+   "pick_near": 0.9967,
+   "verify_accept_at_far1": 0.9853,
+   "verify_accept_at_far5": 0.9907,
+   "greedy_only_accept": 0.9487,
+   "greedy_only_false_accept": 0.0007
+  }
+ },
+ "hw": {
+  "real-words": {
+   "n": 1002,
+   "pick_near": 0.982,
+   "verify_accept_at_far1": 0.8932,
+   "verify_accept_at_far5": 0.9281,
+   "greedy_only_accept": 0.6367,
+   "greedy_only_false_accept": 0.0007
+  },
+  "font-words": {
+   "n": 1500,
+   "pick_near": 0.9993,
+   "verify_accept_at_far1": 0.9987,
+   "verify_accept_at_far5": 0.9993,
+   "greedy_only_accept": 0.9793,
+   "greedy_only_false_accept": 0.0002
+  }
+ }
+}
