@@ -101,14 +101,14 @@ export default function SettingsScreen() {
         {toggle(tr('detailedGrading'), 'detailedGrading', tr('detailedGradingHint'))}
       </Card>
 
+      <Section>{tr('inkLabEntry')}</Section>
+      <Card>
+        <Body dim>{tr('inkLabEntryHint')}</Body>
+        <Btn icon="draw" title={tr('inkLabOpen')} onPress={() => router.push('/ink-lab')} />
+      </Card>
+
       <Section>{tr('voiceTitle')}</Section>
       <VoiceSettings settings={settings} update={update} />
-
-      <Section>{tr('inkLabEntry')}</Section>
-      <Card onPress={() => router.push('/ink-lab')}>
-        <Text style={[styles.label, { color: t.text }]}>{tr('inkLabEntry')}</Text>
-        <Body dim>{tr('inkLabEntryHint')}</Body>
-      </Card>
 
       <Section>{tr('data')}</Section>
       <Card>
