@@ -55,11 +55,8 @@ export interface CheckedAnswer {
   diff: DiffPart[] | null;
   /** The right answer to show. */
   expected: string;
-  /**
-   * A wrong translation the learner may still claim as right (a synonym the dictionary
-   * does not list). Only for Korean → meaning answers typed on the keyboard.
-   */
-  canSelfAccept: boolean;
+  /** Accepted as another form of the word (книги for книга); show the stored form. */
+  form: boolean;
 }
 
 export interface CheckOptions {
@@ -76,17 +73,17 @@ export function isRightOption(word: ExerciseWord, direction: Direction, option: 
 
 export function checkChoice(word: ExerciseWord, direction: Direction, option: string): CheckedAnswer {
   const correct = isRightOption(word, direction, option);
-  return { correct, typo: false, diff: null, expected: direction === 'ru_ko' ? word.korean : (word.meanings[0] ?? ''), canSelfAccept: false };
+  return { correct, typo: false, diff: null, expected: direction === 'ru_ko' ? word.korean : (word.meanings[0] ?? ''), form: false };
 }
 
 /** A typed answer. Korean must match exactly (after Unicode normalisation); a meaning may match any listed sense. */
 export function checkKeyboard(word: ExerciseWord, direction: Direction, given: string, opts: CheckOptions): CheckedAnswer {
   if (direction === 'ru_ko') {
     const r = checkAnswer(given, [word.korean], { ignoreSpaces: !opts.strictSpacing, ignorePunctuation: true });
-    return { correct: r.correct, typo: false, diff: given.trim() === '' ? null : r.diff, expected: word.korean, canSelfAccept: false };
+    return { correct: r.correct, typo: false, diff: given.trim() === '' ? null : r.diff, expected: word.korean, form: false };
   }
   const r = checkMeaning(given, word.meanings);
-  return { correct: r.correct, typo: r.typo, diff: null, expected: r.expected, canSelfAccept: !r.correct && given.trim() !== '' };
+  return { correct: r.correct, typo: r.typo, diff: null, expected: r.expected, form: r.form };
 }
 
 /** Handwriting is checked on the text the recogniser returns, with the same rules as typed Korean. */

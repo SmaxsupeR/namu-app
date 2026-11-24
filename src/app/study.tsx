@@ -28,8 +28,10 @@ interface Feedback {
   /** Stage of the card after the answer: requeued, parked, done. */
   after?: LearnCard['stage'];
   graduated?: boolean;
-  /** A wrong translation that the learner may still claim as right. Not saved yet. */
-  pendingWrong?: boolean;
+  /** Accepted as another form of the word (книги for книга). */
+  form?: boolean;
+  /** The stored form to show after a typo or another form. */
+  expected?: string;
   /** Answered with the learner's own grade (no right/wrong verdict to show). */
   selfGraded?: boolean;
 }
@@ -88,7 +90,6 @@ export default function Study() {
   const sessionId = useRef<string | null>(null);
   const startedAt = useRef(Date.now());
   const shownAt = useRef(Date.now());
-  const pending = useRef<{ session: Session; given: string } | null>(null);
   /** Words studied today, for the "consolidate" offer when the plan is empty. */
   const todayWords = useRef(0);
 
@@ -189,11 +190,10 @@ export default function Study() {
     setBusy(true);
     try {
       const at = Date.now();
-      const step = answer(pending.current?.session ?? session, { ...outcome, at, durationMs: Math.min(at - shownAt.current, 120000) });
+      const step = answer(session, { ...outcome, at, durationMs: Math.min(at - shownAt.current, 120000) });
       const scheduled = await save(step.effects, at);
       const graduated = step.effects.some((e) => e.type === 'graduate');
-      pending.current = null;
-      setFeedback({ ...view, correct: outcome.correct, after: step.card.stage, graduated, nextDueMs: scheduled ? scheduled.due - at : undefined, pendingWrong: false });
+      setFeedback({ ...view, correct: outcome.correct, after: step.card.stage, graduated, nextDueMs: scheduled ? scheduled.due - at : undefined });
       setSession(step.session);
     } catch (e) {
       fail(e);
@@ -208,11 +208,7 @@ export default function Study() {
     if (!feedback && task && entry) setShown({ task, entry, card });
   }, [feedback, task, entry, card]);
 
-  const goNext = async () => {
-    // A wrong translation not claimed as right is saved now.
-    if (feedback?.pendingWrong && pending.current) {
-      await commit({ correct: false, method: 'keyboard', given: pending.current.given }, { ...feedback, pendingWrong: false });
-    }
+  const goNext = () => {
     setFeedback(null);
     setTyped('');
     setRevealed(false);
@@ -248,20 +244,12 @@ export default function Study() {
     const given = dontKnow ? '' : typed;
     if (!dontKnow && given.trim() === '') return;
     if (settings.autoSpeak) speak(e.korean, true);
+    // Typos and other forms of the word are judged here; there is no "my answer is also right".
     const r = checkKeyboard(e, answerSide(card), given, { strictSpacing: settings.strictSpacing });
-    if (r.correct || dontKnow || !r.canSelfAccept) {
-      commit({ correct: r.correct, method: 'keyboard', typoCorrected: r.typo, given }, { correct: r.correct, typo: r.typo, dontKnow, given, diff: dontKnow ? undefined : (r.diff ?? undefined) });
-      return;
-    }
-    // A translation can be right in words the dictionary does not list: let the learner say so before saving.
-    pending.current = { session: session as Session, given };
-    setFeedback({ correct: false, given, pendingWrong: true });
-  };
-
-  const acceptMine = () => {
-    if (!feedback?.pendingWrong || !pending.current) return;
-    const given = pending.current.given;
-    commit({ correct: true, method: 'keyboard', given, selfAccepted: true }, { correct: true, given });
+    commit(
+      { correct: r.correct, method: 'keyboard', typoCorrected: r.typo || r.form, given },
+      { correct: r.correct, typo: r.typo, form: r.form, expected: r.expected, dontKnow, given, diff: dontKnow ? undefined : (r.diff ?? undefined) },
+    );
   };
 
   /** Self-assessed card: show the answer, then the learner grades how well they knew it. */
@@ -280,13 +268,6 @@ export default function Study() {
   const close = useCallback(async () => {
     try {
       const db = await getDb();
-      if (pending.current && session) {
-        // Leaving with an unconfirmed wrong translation counts it as wrong.
-        const at = Date.now();
-        const step = answer(pending.current.session, { correct: false, method: 'keyboard', given: pending.current.given, at });
-        await applyEvent(db, step.effects, { now: at, retention: settings.retention, sessionId: sessionId.current });
-        pending.current = null;
-      }
       if (sessionId.current) await finishSession(db, sessionId.current);
     } catch {
       // Everything answered before this point is already saved.
@@ -598,7 +579,6 @@ export default function Study() {
         </Row>
       ) : (
         <>
-          {feedback.pendingWrong ? <Btn kind="soft" icon="check" title={tr('acceptMine')} disabled={busy} onPress={acceptMine} /> : null}
           <Btn title={tr('next')} disabled={busy} onPress={goNext} />
         </>
       );
@@ -630,7 +610,7 @@ function Outcome({ feedback: f, interval }: { feedback: Feedback; interval: (ms:
   const t = useTheme();
   const tr = useT();
   const ok = f.correct;
-  const heading = f.selfGraded ? (ok ? tr('selfGradedOk') : tr('dontKnowShown')) : ok ? (f.typo ? tr('correctTypo') : tr('correct')) : f.dontKnow ? tr('dontKnowShown') : tr('wrong');
+  const heading = f.selfGraded ? (ok ? tr('selfGradedOk') : tr('dontKnowShown')) : ok ? (f.form ? tr('correctForm') : f.typo ? tr('correctTypo') : tr('correct')) : f.dontKnow ? tr('dontKnowShown') : tr('wrong');
   return (
     <Card style={{ backgroundColor: ok ? t.primarySoft : t.dangerSoft, borderColor: 'transparent' }}>
       <Row style={styles.between}>
@@ -668,10 +648,11 @@ function Outcome({ feedback: f, interval }: { feedback: Feedback; interval: (ms:
         </>
       ) : null}
       {!f.diff && f.given && !ok ? <Text style={[styles.given, { color: t.danger }]}>{`${tr('yourAnswer')}: ${f.given}`}</Text> : null}
-      {f.typo && f.given ? <Body dim>{`${tr('yourAnswer')}: ${f.given}`}</Body> : null}
+      {(f.typo || f.form) && f.given ? <Body dim>{`${tr('yourAnswer')}: ${f.given}`}</Body> : null}
+      {(f.typo || f.form) && f.expected ? <Body dim>{`${tr('rightAnswer')}: ${f.expected}`}</Body> : null}
       {f.nextDueMs !== undefined && ok ? <Body dim>{tr('nextReview', { t: interval(f.nextDueMs) })}</Body> : null}
       {f.after === 'parked' ? <Body dim>{tr('parked')}</Body> : null}
-      {!ok && !f.pendingWrong && f.after !== 'parked' && f.after !== 'done' ? <Body dim>{tr('willRepeat')}</Body> : null}
+      {!ok && f.after !== 'parked' && f.after !== 'done' ? <Body dim>{tr('willRepeat')}</Body> : null}
     </Card>
   );
 }

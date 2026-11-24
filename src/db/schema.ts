@@ -270,6 +270,16 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_grammar_history_time ON grammar_history(reviewed_at);
   `,
+  // v8: dictionaries filled with random words from the bundled dictionary. config is JSON
+  // (count, levels, word types, topic, weekly); a weekly set replaces its words that were
+  // never studied once refreshed_at is a week old.
+  `
+  CREATE TABLE auto_dictionaries (
+    dictionary_id TEXT PRIMARY KEY NOT NULL REFERENCES dictionaries(id) ON DELETE CASCADE,
+    config TEXT NOT NULL,
+    refreshed_at INTEGER NOT NULL
+  );
+  `,
 ];
 
 /** Columns of every table, in backup order (parents before children). */
@@ -288,6 +298,7 @@ export const TABLES: Record<string, string[]> = {
   practice_attempts: ['id', 'session_id', 'entry_id', 'skill', 'mode', 'is_correct', 'rating', 'answer_given', 'hints_used', 'duration_ms', 'created_at', 'self_accepted', 'method', 'learning_skill', 'session_kind', 'typo_corrected'],
   user_preferences: ['key', 'value'],
   grammar_cards: ['topic_id', 'due', 'stability', 'difficulty', 'elapsed_days', 'scheduled_days', 'learning_steps', 'reps', 'lapses', 'state', 'last_review', 'missed'],
+  auto_dictionaries: ['dictionary_id', 'config', 'refreshed_at'],
   grammar_history: ['id', 'topic_id', 'rating', 'correct', 'total', 'state', 'due', 'stability', 'difficulty', 'reviewed_at'],
 };
 

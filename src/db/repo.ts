@@ -337,7 +337,7 @@ export function duplicateKey(korean: string): string {
   return normalizeHangul(korean).trim().toLowerCase();
 }
 
-export async function importEntries(db: Db, dictionaryId: string, rows: ImportRow[], now = Date.now()): Promise<number> {
+export async function importEntries(db: Db, dictionaryId: string, rows: EntryInput[], now = Date.now()): Promise<number> {
   let n = 0;
   await db.withTransactionAsync(async () => {
     // Each row gets a later timestamp so the list and the study order follow the file.
@@ -1073,7 +1073,7 @@ export interface Backup {
   tables: Record<string, Record<string, string | number | null>[]>;
 }
 
-const PRIMARY_KEYS: Record<string, string[]> = { entry_tags: ['entry_id', 'tag'], user_preferences: ['key'], acquisition: ['entry_id', 'direction'], grammar_cards: ['topic_id'] };
+const PRIMARY_KEYS: Record<string, string[]> = { entry_tags: ['entry_id', 'tag'], user_preferences: ['key'], acquisition: ['entry_id', 'direction'], grammar_cards: ['topic_id'], auto_dictionaries: ['dictionary_id'] };
 /** Values for NOT NULL columns that older backups do not have, by table.column. */
 const COLUMN_DEFAULTS: Record<string, string | number> = {
   'practice_attempts.self_accepted': 0,

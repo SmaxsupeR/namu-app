@@ -9,6 +9,8 @@ import { ensureFsrsConfig, loadPreferences } from '../db/repo';
 import { initSpeech } from '../services/speech';
 import { settingsFromPrefs, useApp } from '../state/store';
 import { useT } from '../ui/i18n';
+import { refreshDueAutoDictionaries } from '../db/autoDict';
+import { getDictionary } from '../dict';
 import { useTheme } from '../ui/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -30,6 +32,11 @@ export default function RootLayout() {
         setSettings(settingsFromPrefs(prefs));
         setState('ready');
         initSpeech();
+        // Weekly word sets get new words once a week (only words never studied are replaced).
+        Promise.all([getDb(), getDictionary()])
+          .then(([db, dict]) => refreshDueAutoDictionaries(db, dict))
+          .then((n) => n > 0 && useApp.getState().touch())
+          .catch(() => {});
       })
       .catch((e: unknown) => setState(e instanceof Error ? e.message : String(e)))
       .finally(() => SplashScreen.hideAsync().catch(() => {}));
@@ -61,6 +68,7 @@ export default function RootLayout() {
         <Stack.Screen name="free" options={{ title: tr('freeTitle') }} />
         <Stack.Screen name="listen" options={{ title: tr('hardListenAll') }} />
         <Stack.Screen name="ink-lab" options={{ title: tr('inkLabTitle') }} />
+        <Stack.Screen name="dict-sample" options={{ title: tr('sampleTitle') }} />
         <Stack.Screen name="study" options={{ headerShown: false, gestureEnabled: false }} />
       </Stack>
     </SafeAreaProvider>

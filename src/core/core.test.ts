@@ -200,7 +200,24 @@ describe('translation answers (Korean → meaning)', () => {
     expect(checkMeaning('шкала', ['школа']).correct).toBe(true); // one substitution
     expect(checkMeaning('шкалаа', ['школа']).correct).toBe(false);
     expect(checkMeaning('вода', ['дерево']).correct).toBe(false);
-    expect(checkMeaning('', ['дерево'])).toEqual({ correct: false, typo: false, expected: 'дерево' });
+    expect(checkMeaning('', ['дерево'])).toEqual({ correct: false, typo: false, form: false, expected: 'дерево' });
+  });
+  it('accepts another form of the same word and shows the stored one', () => {
+    expect(checkMeaning('красивая', ['красивый'])).toMatchObject({ correct: true, form: true, expected: 'красивый' });
+    expect(checkMeaning('книги', ['книга'])).toMatchObject({ correct: true, form: true });
+    expect(checkMeaning('школы', ['учебное заведение', 'школа'])).toMatchObject({ correct: true, form: true, expected: 'школа' });
+    expect(checkMeaning('дома', ['дом'])).toMatchObject({ correct: true, form: true });
+    expect(checkMeaning('большие деревья', ['большое дерево'])).toMatchObject({ correct: true, form: true });
+    expect(checkMeaning('помогать людям', ['помогать (людям)', 'оказывать помощь']).correct).toBe(true);
+  });
+  it('allows two typos in long words, none in short ones, and keeps different words apart', () => {
+    expect(checkMeaning('интересныйй', ['интересный']).correct).toBe(true);
+    expect(checkMeaning('интерестнй', ['интересный'])).toMatchObject({ correct: true, typo: true });
+    expect(checkMeaning('рука', ['река']).correct).toBe(false);
+    expect(checkMeaning('кот', ['кит']).correct).toBe(false);
+    expect(checkMeaning('стол', ['стул']).correct).toBe(false);
+    expect(checkMeaning('лес', ['дерево']).correct).toBe(false);
+    expect(checkMeaning('красный', ['красивый']).correct).toBe(false);
   });
   it('measures edit distance with swaps', () => {
     expect(editDistance('школа', 'шкoла'.replace('o', 'о'))).toBe(0);

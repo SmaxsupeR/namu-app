@@ -46,6 +46,7 @@ export default function Dictionaries() {
           <Btn kind="ghost" small title={showArchive ? tr('hideArchive') : tr('showArchive', { n: data.archived.length })} onPress={() => setShowArchive((v) => !v)} />
         ) : null}
         {showArchive ? data?.archived.map(item) : null}
+        <Btn kind="soft" icon="dice-multiple" title={tr('sampleTitle')} onPress={() => router.push('/dict-sample')} />
         <View style={styles.spacer} />
       </Screen>
       <Fab icon="plus" label={tr('createDictionary')} onPress={() => router.push('/dictionary-edit')} />
