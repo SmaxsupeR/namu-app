@@ -47,3 +47,9 @@ Production-ветка — `main`: push в неё обновляет сайт `ht
 ## Проверка
 
 Проверка делалась в Playwright (Chromium): первая загрузка распаковывает словарь и ищет по нему, повторная его не скачивает, service worker включается, без сети приложение открывается и словарь работает, резервная копия скачивается, страница изолирована (`crossOriginIsolated`). На настоящем iPhone (Safari, экран «Домой») ещё не проверялось.
+
+## Если сборка не запускается
+
+- **«This project is disconnected from your Git account»** — Cloudflare не видит новых коммитов. На GitHub: Settings → Applications → Installed GitHub Apps → **Cloudflare Workers and Pages** → Configure → доступ к `namu-app`. В Cloudflare: Worker → Settings → Builds → Git repository → Disconnect → Connect заново, затем проверить команды сборки.
+- **«This token may have been deleted or revoked»** — Builds → API token → **Create new token** (это ключ Cloudflare, которым сборка выкладывает сайт).
+- **«Missing script: build:web»** — собиралась ветка без веб-версии; **Retry build** повторяет старую сборку той же ветки, новая запускается только следующим коммитом.
