@@ -10,6 +10,7 @@ import { headwordSpeech } from '../dict/speech';
 import { createAudioCache, speechText, type AudioCache } from './tts/audioCache';
 import { createDictAudioEngine, createDictAudioPack, type DictAudioInstalled, type DictAudioPack } from './tts/dictAudio';
 import { VOICES_INDEX_URL } from './tts/pack';
+import { createInkPack, type InkPack } from './ink';
 import type { Priority } from './tts/queuePolicy';
 import { createSynthQueue, type SynthQueue } from './tts/synthQueue';
 import { useApp } from '../state/store';
@@ -60,6 +61,10 @@ async function fetchJson(url: string): Promise<unknown> {
 }
 
 const storage = NamuTts ? NamuTts.storageDir() : '';
+
+/** Handwriting model pack (downloaded on request); null where native code is missing. */
+export const inkRoot = `${storage}/ink`;
+export const inkPack: InkPack | null = NamuTts ? createInkPack(nativeIO(), inkRoot, fetchJson, VOICES_INDEX_URL) : null;
 
 /** Voice pack management; null where the neural voice is not supported. */
 export const voicePacks = NamuTts ? createPackManager(nativeIO(), `${storage}/voices`, fetchJson) : null;

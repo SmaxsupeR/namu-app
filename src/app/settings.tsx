@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
 import { getDb } from '../db';
 import { exportBackup, parseBackup, restoreBackup, savePreference } from '../db/repo';
@@ -10,6 +11,7 @@ import { VoiceSettings } from '../ui/VoiceSettings';
 
 export default function SettingsScreen() {
   const t = useTheme();
+  const router = useRouter();
   const tr = useT();
   const settings = useApp((s) => s.settings);
   const patchSettings = useApp((s) => s.patchSettings);
@@ -101,6 +103,12 @@ export default function SettingsScreen() {
 
       <Section>{tr('voiceTitle')}</Section>
       <VoiceSettings settings={settings} update={update} />
+
+      <Section>{tr('inkLabEntry')}</Section>
+      <Card onPress={() => router.push('/ink-lab')}>
+        <Text style={[styles.label, { color: t.text }]}>{tr('inkLabEntry')}</Text>
+        <Body dim>{tr('inkLabEntryHint')}</Body>
+      </Card>
 
       <Section>{tr('data')}</Section>
       <Card>

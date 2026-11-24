@@ -31,6 +31,10 @@ class NamuTtsModule : Module() {
   private var engineFold = false
   private val styles = mutableMapOf<String, VoiceStyle>()
   private val player = Player()
+  // Handwriting recognizer: loaded on first use, kept until the pack changes or the app ends.
+  private val inkLock = Any()
+  private var ink: InkRecognizer? = null
+  private var inkDir: String? = null
   private var callbacks: ComponentCallbacks2? = null
 
   private fun path(p: String) = File(p.removePrefix("file://"))
@@ -136,6 +140,7 @@ class NamuTtsModule : Module() {
       player.stop()
       releaseEngine()
       synchronized(dictLock) { closeDict() }
+      synchronized(inkLock) { runCatching { ink?.close() }; ink = null; inkDir = null }
     }
 
     /** App-private storage that survives updates and is left out of Android cloud backup. */
@@ -308,6 +313,45 @@ class NamuTtsModule : Module() {
         return@AsyncFunction false
       }
       true
+    }
+
+    /** Loads the handwriting model from a pack folder (rec.onnx + dict.txt); a no-op if already loaded. */
+    AsyncFunction("inkLoad") { dir: String ->
+      synchronized(inkLock) {
+        val d = path(dir)
+        if (ink != null && inkDir == d.absolutePath) return@AsyncFunction true
+        runCatching { ink?.close() }
+        ink = null
+        inkDir = null
+        if (!File(d, "rec.onnx").isFile || !File(d, "dict.txt").isFile) throw ModelFileMissing("rec.onnx")
+        try {
+          ink = InkRecognizer(d)
+          inkDir = d.absolutePath
+        } catch (e: OutOfMemoryError) {
+          throw OutOfMemory(e)
+        } catch (e: Throwable) {
+          throw ModelLoadFailed(e)
+        }
+        true
+      }
+    }
+
+    /** Recognizes strokes (each x0, y0, x1, y1, …). With `expected`, also scores that text. */
+    AsyncFunction("inkRecognize") { strokes: List<List<Double>>, expected: String?, withImage: Boolean ->
+      val r = synchronized(inkLock) { ink ?: throw ModelNotLoaded() }.recognize(strokes, expected, withImage)
+      mapOf("text" to r.text, "score" to r.score, "ms" to r.ms.toDouble(), "image" to r.image)
+    }
+
+    AsyncFunction("inkRelease") {
+      synchronized(inkLock) { runCatching { ink?.close() }; ink = null; inkDir = null }
+    }
+
+    View(InkView::class) {
+      Events("onStrokesChanged")
+      Prop("inkColor") { view: InkView, color: String? -> view.setInkColor(color) }
+      AsyncFunction("clear") { view: InkView -> view.clear() }
+      AsyncFunction("undo") { view: InkView -> view.undo() }
+      AsyncFunction("strokes") { view: InkView -> view.snapshot() }
     }
 
     AsyncFunction("dictAudioHas") { db: String, text: String -> dictHas(db, text) }

@@ -29,6 +29,16 @@ export interface Memory {
   nativeHeapMb: number;
 }
 
+export interface InkResult {
+  /** What the model read. */
+  text: string;
+  /** CTC loss of the expected text per character (lower is closer); null without one. */
+  score: number | null;
+  ms: number;
+  /** The 48 px image the model saw, base64 PNG (when asked for). */
+  image: string | null;
+}
+
 export interface DownloadProgressEvent {
   dest: string;
   bytes: number;
@@ -72,6 +82,11 @@ export declare class NamuTtsNative extends NativeModule<Events> {
   /** speed: 1 is normal; other values change the tempo, not the pitch. */
   playFile(file: string, speed?: number): Promise<number>;
   stopPlayback(): void;
+  /** Loads the handwriting model from a pack folder (rec.onnx + dict.txt). */
+  inkLoad(dir: string): Promise<boolean>;
+  /** Recognizes strokes (each x0, y0, x1, y1, …); `score` is the CTC loss of `expected` per character. */
+  inkRecognize(strokes: number[][], expected: string | null, withImage: boolean): Promise<InkResult>;
+  inkRelease(): Promise<void>;
 }
 
 export const NamuTts = requireOptionalNativeModule<NamuTtsNative>('NamuTts');
