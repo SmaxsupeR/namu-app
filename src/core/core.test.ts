@@ -86,6 +86,26 @@ describe('import and export', () => {
       [4, 'empty_field'],
     ]);
   });
+  it('rejects lines that are not a Korean word and its translation', () => {
+    const r = parseWordList('да - нет\n학교 - школа\n학교 - 학교\n학교 школа - x\nPC방 - компьютерный клуб\n~에서 - в, на (место)\n2시 - два часа\nhello - world');
+    expect(r.rows.map((x) => x.korean)).toEqual(['학교', 'PC방', '~에서', '2시']);
+    expect(r.errors.map((e) => [e.line, e.reason])).toEqual([
+      [1, 'no_hangul'],
+      [3, 'meaning_not_translation'],
+      [4, 'mixed_korean'],
+      [8, 'no_hangul'],
+    ]);
+  });
+  it('takes either order line by line', () => {
+    const r = parseWordList('학교 - школа\nвода - 물\n책 - книга\nдруг - 친구');
+    expect(r.rows.map((x) => [x.korean, x.meanings[0]])).toEqual([
+      ['학교', 'школа'],
+      ['물', 'вода'],
+      ['책', 'книга'],
+      ['친구', 'друг'],
+    ]);
+    expect(r.errors).toEqual([]);
+  });
   it('swaps columns when korean comes second', () => {
     const r = parseWordList('дерево - 나무\nвода - 물');
     expect(r.rows.map((x) => x.korean)).toEqual(['나무', '물']);
