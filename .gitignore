@@ -49,3 +49,4 @@ example
 modules/*/android/build/
 __pycache__/
 assets/dict/krdict.db.gz
+.wrangler/
