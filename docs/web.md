@@ -31,19 +31,18 @@ npm run build:web     # сжимает словарь (29 → 10 МБ) и соб
 - `public/` копируется в сборку как есть: шаблон страницы `index.html`, `manifest.webmanifest`, значки, `sw.js` (офлайн-кэш), `_headers` (заголовки Cloudflare).
 - База в браузере требует изоляции страницы (`SharedArrayBuffer`): заголовки `Cross-Origin-Opener-Policy: same-origin` и `Cross-Origin-Embedder-Policy: require-corp` из `public/_headers`. Без них сайт не откроет базу.
 
-## Подключение Cloudflare Pages (один раз)
+## Подключение Cloudflare (один раз)
 
-1. dash.cloudflare.com → **Workers & Pages** → **Create** → вкладка **Pages** → **Connect to Git**.
-2. Разрешите доступ к репозиторию `SmaxsupeR/namu-app` и выберите его.
-3. Настройки сборки:
-   - **Production branch:** `main`
-   - **Framework preset:** None
-   - **Build command:** `npm run build:web`
-   - **Build output directory:** `dist`
-   - **Environment variables:** `NODE_VERSION` = `22`
-4. **Save and Deploy.**
+Cloudflare создаёт такой проект как **Worker со статическими файлами** (Workers & Pages → Create → Import a repository). Настройки сайта — в `wrangler.jsonc`: папка `dist`, все пути приложения отдают `index.html`, заголовки — из `_headers`.
 
-После этого каждый push в `main` обновляет сайт `https://<имя-проекта>.pages.dev`, а каждая другая ветка получает свой адрес предпросмотра `https://<ветка>.<имя-проекта>.pages.dev` — так можно проверить изменения до слияния.
+1. dash.cloudflare.com → **Workers & Pages** → **Create** → **Import a repository** → `SmaxsupeR/namu-app`.
+2. **Project name:** `namu` (должно совпадать с `name` в `wrangler.jsonc`).
+3. **Build command:** `npm run build:web`
+4. **Deploy command:** `npx wrangler deploy`
+5. **Non-production branch deploy command:** `npx wrangler versions upload` — чтобы каждая ветка получала адрес предпросмотра.
+6. Node берётся из `.nvmrc` (22).
+
+Production-ветка — `main`: push в неё обновляет сайт `https://namu.<аккаунт>.workers.dev`. Сборки других веток (если включены **Builds for non-production branches**) выкладываются как версии с собственным адресом предпросмотра.
 
 ## Проверка
 
