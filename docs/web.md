@@ -36,13 +36,13 @@ npm run build:web     # сжимает словарь (29 → 10 МБ) и соб
 Cloudflare создаёт такой проект как **Worker со статическими файлами** (Workers & Pages → Create → Import a repository). Настройки сайта — в `wrangler.jsonc`: папка `dist`, все пути приложения отдают `index.html`, заголовки — из `_headers`.
 
 1. dash.cloudflare.com → **Workers & Pages** → **Create** → **Import a repository** → `SmaxsupeR/namu-app`.
-2. **Project name:** `namu` (должно совпадать с `name` в `wrangler.jsonc`).
+2. **Project name:** `namu-app` (должно совпадать с `name` в `wrangler.jsonc`).
 3. **Build command:** `npm run build:web`
 4. **Deploy command:** `npx wrangler deploy`
 5. **Non-production branch deploy command:** `npx wrangler versions upload` — чтобы каждая ветка получала адрес предпросмотра.
 6. Node берётся из `.nvmrc` (22).
 
-Production-ветка — `main`: push в неё обновляет сайт `https://namu.<аккаунт>.workers.dev`. Сборки других веток (если включены **Builds for non-production branches**) выкладываются как версии с собственным адресом предпросмотра.
+Production-ветка — `main`: push в неё обновляет сайт `https://namu-app.<аккаунт>.workers.dev`. Сборки других веток (если включены **Builds for non-production branches**) выкладываются как версии с собственным адресом предпросмотра.
 
 ## Проверка
 
