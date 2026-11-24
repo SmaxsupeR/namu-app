@@ -1,9 +1,11 @@
 // Opens the dictionary: the full edition when it has been downloaded, otherwise
 // the compact one bundled with the app (copied to app storage on first use; a
 // new compact version gets a new file name).
+import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { NamuTts } from '../../modules/namu-tts';
 import type { Db } from '../db/schema';
+import { compactAssetId } from './compactSource';
 import { createDictPack, type DictPack } from './fullPack';
 
 const COMPACT = 'krdict-2.db';
@@ -46,6 +48,22 @@ export const dictPack: DictPack | null = NamuTts
     )
   : null;
 
+/** Whether a stored database already holds the dictionary (a half-written one is removed). */
+async function hasWords(name: string): Promise<boolean> {
+  let probe: SQLite.SQLiteDatabase | null = null;
+  try {
+    probe = await SQLite.openDatabaseAsync(name, { useNewConnection: true });
+    const row = await probe.getFirstAsync<{ n: number }>("SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name = 'words'");
+    if (row?.n) return true;
+  } catch {
+    // Not there or unreadable: imported again below.
+  } finally {
+    await probe?.closeAsync().catch(() => {});
+  }
+  await SQLite.deleteDatabaseAsync(name).catch(() => {});
+  return false;
+}
+
 let opening: Promise<{ db: SQLite.SQLiteDatabase; edition: Edition }> | null = null;
 
 async function open(): Promise<{ db: SQLite.SQLiteDatabase; edition: Edition }> {
@@ -58,8 +76,11 @@ async function open(): Promise<{ db: SQLite.SQLiteDatabase; edition: Edition }> 
     return { db, edition: 'full' };
   }
   for (const name of OLD_COMPACT) await SQLite.deleteDatabaseAsync(name).catch(() => {});
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  await SQLite.importDatabaseFromAssetAsync(COMPACT, { assetId: require('../../assets/dict/krdict.db') });
+  // In a browser the dictionary is downloaded, so only when it is not stored yet.
+  if (Platform.OS !== 'web' || !(await hasWords(COMPACT))) {
+    // On the web the source is a blob: URL; expo-asset accepts a URI string where a module id goes.
+    await SQLite.importDatabaseFromAssetAsync(COMPACT, { assetId: (await compactAssetId()) as number });
+  }
   return { db: await SQLite.openDatabaseAsync(COMPACT, { useNewConnection: true }), edition: 'compact' };
 }
 

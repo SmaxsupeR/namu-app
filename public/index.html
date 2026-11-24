@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+    <title>Namu — корейский язык</title>
+    <meta name="description" content="Бесплатный тренажёр корейских слов: словари, интервальные повторения, грамматика. Данные хранятся на устройстве." />
+    <meta name="theme-color" content="#2F9E6E" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <!-- iPhone: added to the home screen, it opens full screen like an app -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Namu" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        overflow: hidden;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>Namu работает только с включённым JavaScript.</noscript>
+    <div id="root"></div>
+    <script>
+      // Offline: the service worker keeps the app and the dictionary once they were loaded.
+      if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+    </script>
+  </body>
+</html>

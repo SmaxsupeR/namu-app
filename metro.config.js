@@ -5,5 +5,7 @@ const config = getDefaultConfig(__dirname);
 config.resolver.assetExts.push('wasm');
 // The offline dictionary (assets/dict/krdict.db) is bundled as a file.
 config.resolver.assetExts.push('db');
+// Web build: the same dictionary, gzip-compressed (made by scripts/gzip-dict.mjs).
+config.resolver.assetExts.push('gz');
 
 module.exports = config;

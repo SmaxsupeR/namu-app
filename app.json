@@ -29,6 +29,14 @@
       ],
       "expo-sqlite"
     ],
-    "description": "Free offline Korean vocabulary trainer"
+    "description": "Free offline Korean vocabulary trainer",
+    "web": {
+      "output": "single",
+      "lang": "ru",
+      "name": "Namu",
+      "themeColor": "#2F9E6E",
+      "backgroundColor": "#F6F7F4",
+      "favicon": "./public/icons/icon-192.png"
+    }
   }
 }

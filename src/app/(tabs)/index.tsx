@@ -7,6 +7,7 @@ import { useT, type StringKey } from '../../ui/i18n';
 import { space, useTheme } from '../../ui/theme';
 import { useLoad } from '../../ui/useLoad';
 import { GrammarDueCard } from '../../ui/grammarUi';
+import { WebHints } from '../../ui/WebHints';
 
 function greeting(hour: number): StringKey {
   if (hour < 5) return 'greetNight';
@@ -59,6 +60,7 @@ export default function Home() {
   return (
     <Screen top>
       {header}
+      <WebHints hasWords={overview.totalWords > 0} />
       <Card style={{ backgroundColor: t.primarySoft, borderColor: t.primarySoft }}>
         <Text style={[styles.cardLabel, { color: t.primary }]}>{tr('todayTitle')}</Text>
         {todo > 0 ? (

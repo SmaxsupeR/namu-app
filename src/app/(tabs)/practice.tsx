@@ -8,6 +8,7 @@ import { Body, Btn, Card, Chip, Empty, Icon, Screen, Section, Title, type IconNa
 import { useT, type StringKey } from '../../ui/i18n';
 import { radius, space, useTheme } from '../../ui/theme';
 import { useLoad } from '../../ui/useLoad';
+import { InkCanvas } from '../../../modules/namu-tts/InkCanvas';
 
 const DIRECTION_OPTIONS: { value: DirectionSetting; label: StringKey; hint: StringKey; icon: IconName }[] = [
   { value: 'both', label: 'dirBoth', hint: 'dirBothHint', icon: 'swap-horizontal' },
@@ -94,7 +95,7 @@ export default function Practice() {
           { k: 'modeListening', hint: 'modeListeningHint', icon: 'headphones', to: '/free?prompt=audio' },
           { k: 'modeHandwriting', hint: 'modeHandwritingHint', icon: 'draw', to: '/ink-lab' },
         ] as const
-      ).map((m) => (
+      ).filter((m) => m.k !== 'modeHandwriting' || InkCanvas).map((m) => (
         <Pressable
           key={m.k}
           onPress={() => router.push(m.to)}
