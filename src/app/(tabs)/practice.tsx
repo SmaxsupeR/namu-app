@@ -89,14 +89,25 @@ export default function Practice() {
           </Pressable>
         );
       })}
-      {(['modeListening', 'modeHandwriting'] as const).map((k) => (
-        <View key={k} style={[styles.mode, { backgroundColor: t.surface, borderColor: t.border, opacity: 0.55 }]}>
-          <Icon name={k === 'modeListening' ? 'headphones' : 'draw'} size={24} color={t.textDim} />
+      {(
+        [
+          { k: 'modeListening', hint: 'modeListeningHint', icon: 'headphones', to: '/free?prompt=audio' },
+          { k: 'modeHandwriting', hint: 'modeHandwritingHint', icon: 'draw', to: '/ink-lab' },
+        ] as const
+      ).map((m) => (
+        <Pressable
+          key={m.k}
+          onPress={() => router.push(m.to)}
+          accessibilityRole="button"
+          accessibilityLabel={tr(m.k)}
+          style={[styles.mode, { backgroundColor: t.surface, borderColor: t.border }]}>
+          <Icon name={m.icon} size={24} color={t.primary} />
           <View style={styles.flex}>
-            <Text style={[styles.modeTitle, { color: t.text }]}>{tr(k)}</Text>
-            <Text style={[styles.modeText, { color: t.textDim }]}>{tr('soon')}</Text>
+            <Text style={[styles.modeTitle, { color: t.text }]}>{tr(m.k)}</Text>
+            <Text style={[styles.modeText, { color: t.textDim }]}>{tr(m.hint)}</Text>
           </View>
-        </View>
+          <Icon name="chevron-right" color={t.textDim} />
+        </Pressable>
       ))}
 
       <Section>{tr('answerMethod')}</Section>
