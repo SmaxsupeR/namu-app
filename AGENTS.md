@@ -1,0 +1,8 @@
+# Agent instructions for Namu UX v2
+Read DESIGN.md and UX.md before changing UI. Inspect actual source; screenshots and proposals are not proof of implemented behavior.
+Work on redesign/ux-v2 or a review branch, not main. Do not merge or publish without owner approval.
+Preserve src/core, src/db, FSRS scheduling, migrations, backup compatibility, native TTS, offline operation and licenses. Prefer presentation-only changes; any necessary behavior change must be explicitly documented and tested. Do not delete features to simplify UI.
+Use existing components and semantic theme tokens; refactor reusable primitives before duplicating them. Keep one dominant action, progressive disclosure, compact lists, consistent icons, RU/EN localization, accessibility labels, 48dp touch targets, safe areas and keyboard handling. Avoid hardcoded UI strings and new dependencies without justification.
+Before coding: map existing routes, actions and parameter contracts; identify discrepancies with UX.md. Preserve deep links and navigation behavior. Check installed dependencies and existing settings persistence before adding new state.
+Run npm test and npm run typecheck before and after changes; run Android build and device/emulator smoke tests when available. Never claim unrun tests passed. Test scheduled/free sessions, grammar, audio fallback, imports, backups, existing data and both themes. Report failures and blockers, changed files and screenshots where possible.
+Implement incrementally by UX.md delivery phases. Keep commits scoped. No unrelated refactors, generated binaries, secrets or destructive data operations. Update documentation when implementation differs from approved design.
