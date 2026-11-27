@@ -205,7 +205,7 @@ export default function DictionaryScreen() {
         onClose={() => setMenu(false)}
         title={data?.dictionary?.name}
         actions={[
-          { icon: 'edit-2', label: tr('editDictionary'), onPress: () => router.push(`/dictionary-edit?id=${id}`) },
+          { icon: 'edit-2', label: tr('editDictionaryAction'), onPress: () => router.push(`/dictionary-edit?id=${id}`) },
           { icon: 'download', label: tr('import'), onPress: () => router.push(`/import?dictionaryId=${id}`) },
           { icon: 'upload', label: tr('exportCsv'), onPress: () => doExport(','), hidden: all.length === 0 },
           { icon: 'upload', label: tr('exportTsv'), onPress: () => doExport('\t'), hidden: all.length === 0 },
@@ -217,7 +217,7 @@ export default function DictionaryScreen() {
         onClose={() => setFilters(false)}
         title={tr('filtersTitle')}
         applyLabel={tr('apply')}
-        resetLabel={tr('resetFilters')}
+        resetLabel={tr('reset')}
         onReset={() => setDraft({ grouped: true })}
         onApply={() => {
           setTypeFilter(draft.type);
