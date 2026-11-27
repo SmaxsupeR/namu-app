@@ -2,10 +2,10 @@
 // (iPhone: Share → Add to Home Screen) and reminds to make a backup now and then.
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, StyleSheet } from 'react-native';
-import { Text } from './Text';
-import { Body, Btn, Card, Row } from './components';
+import { Platform } from 'react-native';
+import { IconBtn } from './components';
 import { useT } from './i18n';
+import { ListGroup, ListRow } from './rows';
 import { useTheme } from './theme';
 
 const DISMISS_KEY = 'namu-install-hint-dismissed';
@@ -57,37 +57,32 @@ export function WebHints({ hasWords }: { hasWords: boolean }) {
     setBackupHint(hasWords && Date.now() - last > BACKUP_EVERY_MS);
   }, [hasWords]);
 
-  if (Platform.OS !== 'web') return null;
+  if (Platform.OS !== 'web' || (!installHint && !backupHint)) return null;
   return (
-    <>
+    <ListGroup>
       {installHint ? (
-        <Card>
-          <Text style={[styles.h, { color: t.text }]}>{tr('webInstallTitle')}</Text>
-          <Body dim>{isIos() ? tr('webInstallIos') : tr('webInstallOther')}</Body>
-          <Row>
-            <Btn
-              kind="ghost"
-              small
-              title={tr('webHintDismiss')}
+        <ListRow
+          icon="download"
+          title={tr('webInstallTitle')}
+          subtitle={isIos() ? tr('webInstallIosShort') : tr('webInstallOtherShort')}
+          chevron={false}
+          trailing={
+            <IconBtn
+              name="x"
+              label={tr('webHintDismiss')}
+              color={t.textDim}
+              size={18}
               onPress={() => {
                 write(DISMISS_KEY, '1');
                 setInstallHint(false);
               }}
             />
-          </Row>
-        </Card>
+          }
+        />
       ) : null}
-      {backupHint ? (
-        <Card>
-          <Text style={[styles.h, { color: t.text }]}>{tr('webBackupTitle')}</Text>
-          <Body dim>{tr('webBackupText')}</Body>
-          <Btn kind="soft" small icon="save" title={tr('webBackupGo')} onPress={() => router.push('/settings')} />
-        </Card>
-      ) : null}
-    </>
+      {backupHint ? <ListRow icon="save" iconColor={t.warn} title={tr('webBackupTitle')} subtitle={tr('webBackupShort')} onPress={() => router.push('/settings')} /> : null}
+    </ListGroup>
   );
 }
 
-const styles = StyleSheet.create({
-  h: { fontSize: 16, fontWeight: '700' },
-});
+

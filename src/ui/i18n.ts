@@ -4,6 +4,15 @@ import { formatInterval } from '../core/scheduler';
 import { useApp, type Language } from '../state/store';
 
 const ru = {
+  retry: 'Повторить',
+  todayErrorTitle: 'Не удалось открыть план на сегодня',
+  todayErrorText: 'Ваши слова на месте. Попробуйте ещё раз.',
+  webInstallIosShort: 'Поделиться → На экран «Домой»',
+  webInstallOtherShort: 'Меню браузера → Установить приложение',
+  webBackupShort: 'Браузер может удалить данные — сохраните копию',
+  wordsErrorTitle: 'Не удалось открыть словари',
+  readySets: 'Готовые подборки',
+  readySetsHint: 'Случайные слова из встроенного словаря по уровню и теме',
   tabToday: 'Сегодня',
   tabMyWords: 'Мои слова',
   tabExplore: 'Изучать',
@@ -586,6 +595,15 @@ type Strings = typeof ru;
 export type StringKey = keyof Strings;
 
 const en: Strings = {
+  retry: 'Try again',
+  todayErrorTitle: "Couldn't open today's plan",
+  todayErrorText: 'Your words are safe. Please try again.',
+  webInstallIosShort: 'Share → Add to Home Screen',
+  webInstallOtherShort: 'Browser menu → Install app',
+  webBackupShort: 'The browser may clear data — save a copy',
+  wordsErrorTitle: "Couldn't open your dictionaries",
+  readySets: 'Ready-made sets',
+  readySetsHint: 'Random words from the built-in dictionary by level and topic',
   tabToday: 'Today',
   tabMyWords: 'My words',
   tabExplore: 'Explore',

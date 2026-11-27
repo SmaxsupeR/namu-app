@@ -1,9 +1,10 @@
 // Panels over the screen: a bottom sheet for secondary choices and filters, and a dialog
 // to confirm destructive actions (also on the web, where the system Alert shows nothing).
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Btn, Row } from './components';
+import { Btn, Row, type IconName } from './components';
+import { ListGroup, ListRow } from './rows';
 import { Text } from './Text';
 import { radius, space, type as typeScale, useTheme } from './theme';
 
@@ -124,6 +125,84 @@ export function ConfirmationDialog({
       </View>
     </Modal>
   );
+}
+
+export interface SheetAction {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+  hidden?: boolean;
+}
+
+/** Secondary actions of a screen ("…" menu) as a list in a bottom sheet. */
+export function ActionSheet({ visible, onClose, title, actions }: { visible: boolean; onClose: () => void; title?: string; actions: SheetAction[] }) {
+  const t = useTheme();
+  return (
+    <BottomSheet visible={visible} onClose={onClose} title={title}>
+      <ListGroup>
+        {actions
+          .filter((a) => !a.hidden)
+          .map((a) => (
+            <ListRow
+              key={a.label}
+              icon={a.icon}
+              iconColor={a.destructive ? t.danger : undefined}
+              title={a.label}
+              chevron={false}
+              onPress={() => {
+                onClose();
+                // Let the sheet close before the action opens anything else.
+                setTimeout(a.onPress, 50);
+              }}
+            />
+          ))}
+      </ListGroup>
+    </BottomSheet>
+  );
+}
+
+export interface ConfirmOptions {
+  title: string;
+  message?: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  destructive?: boolean;
+}
+
+/**
+ * Confirmation as a promise: `if (await confirm({...})) remove()`. Render `dialog` once in
+ * the screen. Works on Android and on the web.
+ */
+export function useConfirm(): { dialog: ReactNode; confirm: (o: ConfirmOptions) => Promise<boolean> } {
+  const [opts, setOpts] = useState<ConfirmOptions | null>(null);
+  const resolver = useRef<((v: boolean) => void) | null>(null);
+  const confirm = useCallback(
+    (o: ConfirmOptions) =>
+      new Promise<boolean>((resolve) => {
+        resolver.current = resolve;
+        setOpts(o);
+      }),
+    [],
+  );
+  const close = (v: boolean) => {
+    resolver.current?.(v);
+    resolver.current = null;
+    setOpts(null);
+  };
+  const dialog = (
+    <ConfirmationDialog
+      visible={opts !== null}
+      title={opts?.title ?? ''}
+      message={opts?.message}
+      confirmLabel={opts?.confirmLabel ?? ''}
+      cancelLabel={opts?.cancelLabel ?? ''}
+      destructive={opts?.destructive}
+      onConfirm={() => close(true)}
+      onCancel={() => close(false)}
+    />
+  );
+  return { dialog, confirm };
 }
 
 const styles = StyleSheet.create({

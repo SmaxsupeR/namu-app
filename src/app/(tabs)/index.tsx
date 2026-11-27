@@ -1,13 +1,16 @@
+// Today: today's study in one tap, then what else is due and the recent dictionaries. Counts
+// that belong to Progress (learning / mastered / total) are not repeated here.
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { Text } from '../../ui/Text';
 import { getOverview, getPlanCounts, listDictionaries } from '../../db/repo';
 import { directionList, useApp } from '../../state/store';
-import { Bar, Body, Btn, Card, Empty, Icon, IconBtn, Row, Screen, Section, Title } from '../../ui/components';
+import { Bar, Btn, EmptyState, ErrorState, Icon, IconBtn, LoadingState, Screen, ScreenHeader, SectionHeader } from '../../ui/components';
+import { useGrammarReview } from '../../ui/grammarUi';
 import { useT, type StringKey } from '../../ui/i18n';
-import { space, useTheme } from '../../ui/theme';
+import { ListGroup, ListRow } from '../../ui/rows';
+import { Text } from '../../ui/Text';
+import { radius, space, type as typeScale, useTheme } from '../../ui/theme';
 import { useLoad } from '../../ui/useLoad';
-import { GrammarDueCard } from '../../ui/grammarUi';
 import { WebHints } from '../../ui/WebHints';
 
 function greeting(hour: number): StringKey {
@@ -17,12 +20,13 @@ function greeting(hour: number): StringKey {
   return 'greetEvening';
 }
 
-export default function Home() {
+export default function Today() {
   const t = useTheme();
   const tr = useT();
   const router = useRouter();
   const settings = useApp((s) => s.settings);
-  const { data } = useLoad(async (db) => {
+  const grammar = useGrammarReview();
+  const { data, error, reload } = useLoad(async (db) => {
     const now = Date.now();
     const [overview, counts, dictionaries] = await Promise.all([
       getOverview(db, now),
@@ -32,123 +36,118 @@ export default function Home() {
     return { overview, counts, dictionaries };
   }, [settings.newPerDay, settings.maxReviews, settings.directions]);
 
-  const header = (
-    <Row style={styles.header}>
-      <Title>{tr(greeting(new Date().getHours()))}</Title>
-      <IconBtn name="settings" label={tr('settings')} onPress={() => router.push('/settings')} />
-    </Row>
-  );
+  const header = <ScreenHeader title={tr(greeting(new Date().getHours()))} actions={<IconBtn name="settings" label={tr('settings')} onPress={() => router.push('/settings')} />} />;
 
-  if (!data) return <Screen top>{header}</Screen>;
+  if (error && !data) {
+    return (
+      <Screen top>
+        {header}
+        <ErrorState title={tr('todayErrorTitle')} text={tr('todayErrorText')} retryLabel={tr('retry')} onRetry={reload} />
+      </Screen>
+    );
+  }
+  if (!data) {
+    return (
+      <Screen top>
+        {header}
+        <LoadingState />
+      </Screen>
+    );
+  }
   const { overview, counts, dictionaries } = data;
 
   if (dictionaries.length === 0) {
     return (
       <Screen top>
         {header}
-        <Empty
+        <EmptyState
           icon="feather"
           title={tr('welcomeTitle')}
           text={tr('welcomeText')}
-          action={<Btn title={tr('createDictionary')} icon="plus" onPress={() => router.push('/dictionary-edit')} />}
+          action={
+            <View style={styles.actions}>
+              <Btn title={tr('createDictionary')} icon="plus" onPress={() => router.push('/dictionary-edit')} />
+              <Btn kind="ghost" icon="shuffle" title={tr('sampleTitle')} onPress={() => router.push('/dict-sample')} />
+            </View>
+          }
         />
       </Screen>
     );
   }
 
   const todo = counts.due + counts.learning + counts.fresh;
-  const lines = [counts.learning > 0 && tr('planLearning', { n: counts.learning }), counts.fresh > 0 && tr('planFresh', { n: counts.fresh })].filter(Boolean) as string[];
+  const plan = [counts.due > 0 && tr('planDue', { n: counts.due }), counts.learning > 0 && tr('planLearning', { n: counts.learning }), counts.fresh > 0 && tr('planFresh', { n: counts.fresh })].filter(Boolean).join(' · ');
+  const grammarDue = grammar?.due.length ?? 0;
+  const studied = overview.answersToday > 0;
+
   return (
     <Screen top>
       {header}
       <WebHints hasWords={overview.totalWords > 0} />
-      <Card style={{ backgroundColor: t.primarySoft, borderColor: t.primarySoft }}>
-        <Text style={[styles.cardLabel, { color: t.primary }]}>{tr('todayTitle')}</Text>
+
+      {/* The one main thing on this screen. */}
+      <View style={[styles.hero, { backgroundColor: t.primarySoft }]}>
+        <Text style={[typeScale.caption, { color: t.primary }]}>{tr('todayTitle')}</Text>
         {todo > 0 ? (
           <>
-            <Text style={[styles.big, { color: t.text }]}>{counts.due > 0 ? tr('planDue', { n: counts.due }) : (lines.shift() as string)}</Text>
-            {lines.map((l) => (
-              <Body key={l} dim>{`+ ${l}`}</Body>
-            ))}
-            <Btn title={tr('startReview')} icon="play" onPress={() => router.push('/study')} style={styles.gapTop} />
+            <Text variant="section">{plan}</Text>
+            <Btn title={tr('startReview')} icon="play" onPress={() => router.push('/study')} />
           </>
         ) : (
           <>
-            <Text style={[styles.big, { color: t.text }]}>{tr('allDone')}</Text>
-            <Body dim>{overview.answersToday > 0 ? tr('consolidateHint') : tr('allDoneHint')}</Body>
-            {overview.answersToday > 0 ? (
-              <Btn title={tr('consolidateToday')} icon="repeat" onPress={() => router.push(`/study?kind=free&source=today&dirs=both&method=${settings.answerMethod}&limit=50`)} style={styles.gapTop} />
-            ) : null}
-            <Btn kind="ghost" small icon="sliders" title={tr('freeTitle')} onPress={() => router.push('/free')} />
+            <Text variant="section">{tr('allDone')}</Text>
+            <Text style={[typeScale.secondary, { color: t.textDim }]}>{studied ? tr('consolidateHint') : tr('allDoneHint')}</Text>
+            {studied ? <Btn kind="ghost" icon="repeat" title={tr('consolidateToday')} onPress={() => router.push(`/study?kind=free&source=today&dirs=both&method=${settings.answerMethod}&limit=50`)} /> : null}
           </>
         )}
-      </Card>
+      </View>
 
-      <Card>
-        <Row style={styles.between}>
-          <Text style={[styles.cardLabel, { color: t.textDim }]}>{tr('doneToday')}</Text>
-          {overview.streakDays > 0 ? (
-            <Row>
-              <Icon name="zap" size={18} color={t.warn} />
-              <Text style={[styles.small, { color: t.warn }]}>{tr('streak', { n: overview.streakDays })}</Text>
-            </Row>
-          ) : null}
-        </Row>
-        <Text style={[styles.medium, { color: t.text }]}>{tr('answers', { n: overview.answersToday })}</Text>
-        {overview.newToday > 0 ? <Body dim>{tr('planFresh', { n: overview.newToday })}</Body> : null}
-        <Bar value={todo === 0 ? 1 : overview.answersToday / (overview.answersToday + todo * 3)} />
-      </Card>
+      {studied || overview.streakDays > 0 ? (
+        <View style={styles.progress} accessible accessibilityLabel={[tr('answers', { n: overview.answersToday }), overview.streakDays > 0 ? tr('streak', { n: overview.streakDays }) : ''].join('. ')}>
+          <View style={styles.progressRow}>
+            <Text style={[typeScale.secondary, styles.flex, { color: t.textDim }]}>
+              {[tr('answers', { n: overview.answersToday }), overview.newToday > 0 ? tr('planFresh', { n: overview.newToday }) : ''].filter(Boolean).join(' · ')}
+            </Text>
+            {overview.streakDays > 0 ? (
+              <View style={styles.streak}>
+                <Icon name="zap" size={16} color={t.warn} />
+                <Text style={[typeScale.caption, { color: t.warn }]}>{tr('streak', { n: overview.streakDays })}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Bar value={todo === 0 ? 1 : overview.answersToday / (overview.answersToday + todo * 3)} />
+        </View>
+      ) : null}
 
-      <Row style={styles.tiles}>
-        <Tile label={tr('statLearning')} value={overview.learningWords} color={t.info} />
-        <Tile label={tr('statStable')} value={overview.stableWords} color={t.primary} />
-        <Tile label={tr('statWords')} value={overview.totalWords} color={t.text} />
-      </Row>
+      {grammarDue > 0 ? (
+        <ListGroup>
+          <ListRow icon="align-left" title={tr('grammarStartReview')} value={tr('exploreGrammarDue', { n: grammarDue })} onPress={() => router.push('/grammar-drill?review=1')} />
+        </ListGroup>
+      ) : null}
 
-      <GrammarDueCard />
-
-      <Section>{tr('recentDictionaries')}</Section>
-      {dictionaries.slice(0, 3).map((d) => (
-        <Card key={d.id} onPress={() => router.push(`/dictionary/${d.id}`)}>
-          <Row>
-            <View style={[styles.dot, { backgroundColor: d.color }]} />
-            <View style={styles.flex}>
-              <Text style={[styles.dictName, { color: t.text }]} numberOfLines={1}>
-                {d.name}
-              </Text>
-              <Body dim>{tr('words', { n: d.entry_count }) + (d.due_count > 0 ? ` · ${tr('due', { n: d.due_count })}` : '')}</Body>
-            </View>
-            <Icon name="chevron-right" color={t.textDim} />
-          </Row>
-        </Card>
-      ))}
+      <SectionHeader title={tr('recentDictionaries')} action={dictionaries.length > 3 ? tr('all') : undefined} onAction={() => router.push('/dictionaries')} />
+      <ListGroup>
+        {dictionaries.slice(0, 3).map((d) => (
+          <ListRow
+            key={d.id}
+            leading={<View style={[styles.swatch, { backgroundColor: d.color }]} />}
+            title={d.name}
+            subtitle={tr('words', { n: d.entry_count })}
+            value={d.due_count > 0 ? tr('due', { n: d.due_count }) : undefined}
+            onPress={() => router.push(`/dictionary/${d.id}`)}
+          />
+        ))}
+      </ListGroup>
     </Screen>
-  );
-}
-
-function Tile({ label, value, color }: { label: string; value: number; color: string }) {
-  const t = useTheme();
-  return (
-    <Card style={styles.tile}>
-      <Text style={[styles.tileValue, { color }]}>{value}</Text>
-      <Text style={[styles.tileLabel, { color: t.textDim }]}>{label}</Text>
-    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  header: { justifyContent: 'space-between' },
-  between: { justifyContent: 'space-between' },
-  cardLabel: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
-  big: { fontSize: 24, fontWeight: '700' },
-  medium: { fontSize: 20, fontWeight: '700' },
-  small: { fontSize: 13, fontWeight: '600' },
-  gapTop: { marginTop: space.sm },
-  tiles: { gap: space.md, alignItems: 'stretch' },
-  tile: { flex: 1, padding: space.md, gap: 2 },
-  tileValue: { fontSize: 24, fontWeight: '700' },
-  tileLabel: { fontSize: 12, fontWeight: '600' },
-  dot: { width: 14, height: 14, borderRadius: 7 },
-  dictName: { fontSize: 17, fontWeight: '600' },
+  actions: { gap: space.sm },
+  hero: { borderRadius: radius.lg, padding: space.lg, gap: space.md },
+  progress: { gap: space.sm, paddingHorizontal: space.xs },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  streak: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  swatch: { width: 14, height: 14, borderRadius: 4 },
 });

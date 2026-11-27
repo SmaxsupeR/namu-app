@@ -31,6 +31,7 @@ export function ListRow({
   subtitle,
   icon,
   iconColor,
+  leading,
   value,
   trailing,
   chevron,
@@ -43,6 +44,8 @@ export function ListRow({
   subtitle?: string;
   icon?: IconName;
   iconColor?: string;
+  /** Custom element at the start instead of an icon (e.g. a dictionary's color). */
+  leading?: ReactNode;
   /** Short current value on the right ("12 words", "On"). */
   value?: string;
   trailing?: ReactNode;
@@ -56,11 +59,7 @@ export function ListRow({
   const label = [title, subtitle, value].filter(Boolean).join('. ');
   const body = (
     <>
-      {icon ? (
-        <View style={styles.leading}>
-          <Icon name={icon} color={iconColor ?? t.primary} />
-        </View>
-      ) : null}
+      {icon || leading ? <View style={styles.leading}>{leading ?? <Icon name={icon!} color={iconColor ?? t.primary} />}</View> : null}
       <View style={styles.texts}>
         <Text style={typeScale.bodyStrong} numberOfLines={2}>
           {title}
