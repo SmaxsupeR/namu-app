@@ -1,15 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../../ui/Text';
-import { getDb } from '../../db';
-import { getDifficultWords, getPlanCounts, listDictionaries, savePreference } from '../../db/repo';
-import { directionList, useApp, type DirectionSetting } from '../../state/store';
-import { Body, Btn, Card, Chip, Empty, Icon, Screen, Section, Title, type IconName } from '../../ui/components';
-import { useT, type StringKey } from '../../ui/i18n';
-import { radius, space, useTheme } from '../../ui/theme';
-import { useLoad } from '../../ui/useLoad';
-import { InkCanvas } from '../../../modules/namu-tts/InkCanvas';
+import { Text } from '../ui/Text';
+import { getDb } from '../db';
+import { getDifficultWords, getPlanCounts, listDictionaries, savePreference } from '../db/repo';
+import { directionList, useApp, type DirectionSetting } from '../state/store';
+import { Body, Btn, Card, Chip, Empty, Icon, Screen, Section, type IconName } from '../ui/components';
+import { useT, type StringKey } from '../ui/i18n';
+import { radius, space, useTheme } from '../ui/theme';
+import { useLoad } from '../ui/useLoad';
+import { InkCanvas } from '../../modules/namu-tts/InkCanvas';
 
 const DIRECTION_OPTIONS: { value: DirectionSetting; label: StringKey; hint: StringKey; icon: IconName }[] = [
   { value: 'both', label: 'dirBoth', hint: 'dirBothHint', icon: 'repeat' },
@@ -48,8 +48,7 @@ export default function Practice() {
 
   if (data && data.dictionaries.length === 0) {
     return (
-      <Screen top>
-        <Title>{tr('tabPractice')}</Title>
+      <Screen>
         <Empty icon="layers" title={tr('welcomeTitle')} text={tr('welcomeText')} action={<Btn title={tr('createDictionary')} icon="plus" onPress={() => router.push('/dictionary-edit')} />} />
       </Screen>
     );
@@ -60,8 +59,7 @@ export default function Practice() {
   const lines = c ? [c.due > 0 && tr('planDue', { n: c.due }), c.learning > 0 && tr('planLearning', { n: c.learning }), c.fresh > 0 && tr('planFresh', { n: c.fresh })].filter(Boolean) : [];
 
   return (
-    <Screen top>
-      <Title>{tr('tabPractice')}</Title>
+    <Screen>
       <Text style={[styles.blockTitle, { color: t.text }]}>{tr('plannedTitle')}</Text>
       <Body dim>{tr('plannedHint')}</Body>
       <Section>{tr('practiceWhat')}</Section>

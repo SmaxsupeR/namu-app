@@ -3,7 +3,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useT } from '../ui/i18n';
-import { ReferenceScreen } from './(tabs)/translate';
+import { ReferenceScreen } from '../ui/ReferenceScreen';
 
 export default function Reference() {
   const tr = useT();

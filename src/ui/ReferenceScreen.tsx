@@ -1,29 +1,25 @@
-// "Translator" tab: the whole Korean–Russian dictionary, searched in either
-// language or browsed by word type, level, topic and situation.
+// The reference: the whole Korean–Russian dictionary (searched in either language or browsed
+// by word type, level, topic and situation), the grammar guide and the conjugation table.
+// Shown by /reference (from Explore) and the older /translate route.
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../../ui/Text';
+import { Text } from './Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getDictionary } from '../../dict';
-import { browse, countWords, queryKind, search, subjectCounts, type DictFilter, type DictWord } from '../../dict/lookup';
-import { topicName, TOP_TOPICS } from '../../dict/topics';
-import { Body, Btn, Field, Icon, IconBtn, SegmentedControl, Title } from '../../ui/components';
-import { FilterPanel, FullDictCard, TYPE_LABEL, LEVEL_LABEL, WordRow } from '../../ui/dictUi';
-import { Conjugator, GrammarList } from '../../ui/grammarUi';
-import { useT } from '../../ui/i18n';
-import { radius, space, useTheme } from '../../ui/theme';
+import { getDictionary } from '../dict';
+import { browse, countWords, queryKind, search, subjectCounts, type DictFilter, type DictWord } from '../dict/lookup';
+import { topicName, TOP_TOPICS } from '../dict/topics';
+import { Body, Btn, Field, Icon, IconBtn, SegmentedControl, Title } from './components';
+import { FilterPanel, FullDictCard, TYPE_LABEL, LEVEL_LABEL, WordRow } from './dictUi';
+import { Conjugator, GrammarList } from './grammarUi';
+import { useT } from './i18n';
+import { radius, space, useTheme } from './theme';
 
 const PAGE = 40;
 
 export type ReferenceSection = 'words' | 'grammar' | 'conjugate';
 const SECTIONS: ReferenceSection[] = ['words', 'grammar', 'conjugate'];
-
-/** Legacy tab route (/translate): the same reference with its own title. */
-export default function Translate() {
-  return <ReferenceScreen embedded={false} />;
-}
 
 /**
  * The reference: the Korean–Russian dictionary, the grammar guide and the conjugation table.

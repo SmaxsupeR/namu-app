@@ -23,9 +23,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="dictionaries" options={{ title: tr('tabMyWords'), tabBarIcon: icon('book'), tabBarAccessibilityLabel: tr('tabMyWords') }} />
       <Tabs.Screen name="explore" options={{ title: tr('tabExplore'), tabBarIcon: icon('compass'), tabBarAccessibilityLabel: tr('tabExplore') }} />
       <Tabs.Screen name="progress" options={{ title: tr('tabProgress'), tabBarIcon: icon('bar-chart-2'), tabBarAccessibilityLabel: tr('tabProgress') }} />
-      {/* Former tabs, kept as routes for links and deep links: their content now lives in Explore and Settings. */}
-      <Tabs.Screen name="translate" options={{ href: null }} />
-      <Tabs.Screen name="practice" options={{ href: null }} />
     </Tabs>
   );
 }
