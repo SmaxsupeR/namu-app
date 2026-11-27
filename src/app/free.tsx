@@ -1,22 +1,24 @@
+// Free practice: how words are presented, what to practise, how many — then Start. Direction,
+// answer method, attempts and "count as a review" sit under Advanced with a one-line summary.
+// The last choice is remembered; links from Explore (listening, flashcards, hard words) still
+// set their own mode.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Stack } from 'expo-router/stack';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
-import { Text } from '../ui/Text';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { getDb } from '../db';
-import { getDifficultWords, listDictionaries, listEntries, savePreference, type Entry } from '../db/repo';
+import { getDifficultWords, listDictionaries, listEntries, loadPreferences, savePreference, type Entry } from '../db/repo';
+import { DEFAULT_FREE, FREE_COUNTS, FREE_PREF_KEY, parseFreeChoice, type FreeDirs, type FreeMethod } from '../state/freePractice';
 import { useApp } from '../state/store';
-import { Body, Btn, Card, Chip, Icon, IconBtn, Row, Screen, Section } from '../ui/components';
+import { Body, Btn, Chip, Icon, IconBtn, Row, Screen, Section, SegmentedControl } from '../ui/components';
 import { useT } from '../ui/i18n';
-import { radius, space, useTheme } from '../ui/theme';
+import { ListGroup, ListRow, SettingsRow } from '../ui/rows';
+import { Text } from '../ui/Text';
+import { radius, size, space, type as typeScale, useTheme } from '../ui/theme';
 import { useLoad } from '../ui/useLoad';
 
 type Source = 'dicts' | 'entries' | 'hard' | 'today';
-type Dirs = 'both' | 'ko_ru' | 'ru_ko';
-type Method = 'keyboard' | 'self_grade' | 'choice';
 type Prompt = 'text' | 'audio' | 'dictation';
-
-const COUNTS = [10, 20, 50];
 
 export default function FreePractice() {
   const params = useLocalSearchParams<{ source?: string; prompt?: string; method?: string }>();
@@ -25,16 +27,38 @@ export default function FreePractice() {
   const router = useRouter();
   const attempts = useApp((s) => s.settings.practiceAttempts);
   const patchSettings = useApp((s) => s.patchSettings);
+  const linkMethod: FreeMethod | null = params.method === 'self_grade' || params.method === 'choice' || params.method === 'keyboard' ? params.method : null;
   const [source, setSource] = useState<Source>(params.source === 'hard' ? 'hard' : params.source === 'today' ? 'today' : 'dicts');
-  const [dicts, setDicts] = useState<string[]>([]);
+  const [dicts, setDicts] = useState<string[]>(DEFAULT_FREE.dicts);
   const [picked, setPicked] = useState<string[]>([]);
   const [pickFrom, setPickFrom] = useState<string | null>(null);
-  const [dirs, setDirs] = useState<Dirs>('ko_ru');
-  const [method, setMethod] = useState<Method>(params.method === 'self_grade' || params.method === 'choice' ? params.method : 'keyboard');
-  const [limit, setLimit] = useState(20);
+  const [dirs, setDirs] = useState<FreeDirs>(DEFAULT_FREE.dirs);
+  const [method, setMethod] = useState<FreeMethod>(linkMethod ?? DEFAULT_FREE.method);
+  const [limit, setLimit] = useState(DEFAULT_FREE.limit);
   const [countAsReview, setCountAsReview] = useState(false);
   const [prompt, setPrompt] = useState<Prompt>(params.prompt === 'audio' || params.prompt === 'dictation' ? params.prompt : 'text');
+  const [advanced, setAdvanced] = useState(false);
   const listening = prompt !== 'text';
+
+  // The last valid choice; a method given by the link wins.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const db = await getDb();
+      const prefs = await loadPreferences(db);
+      const ids = (await listDictionaries(db, Date.now())).map((d) => d.id);
+      const last = parseFreeChoice(prefs[FREE_PREF_KEY], ids);
+      if (!alive) return;
+      setDicts(last.dicts);
+      setDirs(last.dirs);
+      setLimit(last.limit);
+      if (!linkMethod) setMethod(last.method);
+    })().catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data } = useLoad(async (db) => {
     const now = Date.now();
@@ -48,13 +72,19 @@ export default function FreePractice() {
   const setAttempts = (n: number) => {
     const v = Math.max(1, Math.min(10, n));
     patchSettings({ practiceAttempts: v });
-    getDb().then((db) => savePreference(db, 'practiceAttempts', JSON.stringify(v))).catch(() => {});
+    getDb()
+      .then((db) => savePreference(db, 'practiceAttempts', JSON.stringify(v)))
+      .catch(() => {});
   };
 
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
   const available = source === 'entries' ? picked.length : source === 'hard' ? (data?.hard.length ?? 0) : 1;
+  const countable = !listening && method !== 'choice';
   const start = () => {
+    getDb()
+      .then((db) => savePreference(db, FREE_PREF_KEY, JSON.stringify({ dicts, dirs, method, limit })))
+      .catch(() => {});
     const q = new URLSearchParams({
       kind: 'free',
       source,
@@ -64,36 +94,31 @@ export default function FreePractice() {
       method,
       limit: String(source === 'entries' ? picked.length : limit),
       fails: String(attempts),
-      count: countAsReview && method !== 'choice' && !listening ? '1' : '0',
+      count: countAsReview && countable ? '1' : '0',
       prompt,
     });
     router.push(`/study?${q.toString()}`);
   };
 
-  const option = <T extends string>(value: T, current: T, set: (v: T) => void, title: string, hint: string) => {
-    const active = value === current;
-    return (
-      <Pressable
-        key={value}
-        onPress={() => set(value)}
-        accessibilityRole="button"
-        accessibilityLabel={title}
-        accessibilityHint={hint}
-        accessibilityState={{ selected: active }}
-        style={[styles.option, { backgroundColor: active ? t.primarySoft : t.surface, borderColor: active ? t.primary : t.border }]}>
-        <View style={styles.flex}>
-          <Text style={[styles.optionTitle, { color: t.text }]}>{title}</Text>
-          <Text style={[styles.optionHint, { color: t.textDim }]}>{hint}</Text>
-        </View>
-        {active ? <Icon name="check-circle" color={t.primary} /> : null}
-      </Pressable>
-    );
-  };
+  const dirLabel = { both: tr('dirBoth'), ko_ru: tr('dirKoRu'), ru_ko: tr('dirRuKo') }[dirs];
+  const methodLabel = { keyboard: tr('methodKeyboard'), self_grade: tr('methodSelf'), choice: tr('methodChoice') }[method];
+  const summary = [listening ? null : dirLabel, methodLabel, tr('attemptsN', { n: attempts }), countAsReview && countable ? tr('countsAsReviewShort') : null].filter(Boolean).join(' · ');
 
   return (
     <Screen footer={<Btn title={tr('start')} icon="play" disabled={available === 0} onPress={start} />}>
       <Stack.Screen options={{ title: tr('freeTitle') }} />
-      <Body dim>{tr('freeHint')}</Body>
+
+      <Section>{tr('promptTitle')}</Section>
+      <SegmentedControl
+        value={prompt}
+        onChange={setPrompt}
+        options={[
+          { value: 'text', label: tr('promptText') },
+          { value: 'audio', label: tr('promptAudio') },
+          { value: 'dictation', label: tr('promptDictation') },
+        ]}
+      />
+      <Body dim>{tr(prompt === 'audio' ? 'promptAudioHint' : prompt === 'dictation' ? 'promptDictationHint' : 'freeHint')}</Body>
 
       <Section>{tr('freeSource')}</Section>
       <View style={styles.chips}>
@@ -113,21 +138,17 @@ export default function FreePractice() {
       ) : null}
 
       {source === 'hard' ? (
-        <Card>
+        <>
+          <Body dim>{data && data.hard.length === 0 ? tr('hardNone') : data ? tr('hardCount', { n: data.hard.length }) : ''}</Body>
           {data && data.hard.length > 0 ? (
-            <Btn kind="soft" small icon="list" title={tr('hardListenAll')} onPress={() => router.push(`/listen?source=hard&dicts=${dicts.join(',')}`)} />
+            <ListGroup>
+              {data.hard.slice(0, 5).map((w) => (
+                <ListRow key={w.id} title={w.korean} value={w.meaning ?? ''} chevron={false} />
+              ))}
+              <ListRow icon="headphones" title={tr('hardListenAll')} onPress={() => router.push(`/listen?source=hard&dicts=${dicts.join(',')}`)} />
+            </ListGroup>
           ) : null}
-          {data && data.hard.length === 0 ? <Body dim>{tr('hardNone')}</Body> : null}
-          {data && data.hard.length > 0 ? <Text style={[styles.strong, { color: t.text }]}>{tr('hardCount', { n: data.hard.length })}</Text> : null}
-          {data?.hard.slice(0, 8).map((w) => (
-            <Row key={w.id} style={styles.between}>
-              <Text style={[styles.word, { color: t.text }]}>{w.korean}</Text>
-              <Text style={{ color: t.textDim, flexShrink: 1 }} numberOfLines={1}>
-                {w.meaning ?? ''}
-              </Text>
-            </Row>
-          ))}
-        </Card>
+        </>
       ) : null}
 
       {source === 'entries' ? (
@@ -138,73 +159,93 @@ export default function FreePractice() {
             ))}
           </View>
           <Body dim>{tr('pickedCount', { n: picked.length })}</Body>
-          <Card style={styles.list}>
-            {data?.words.map((w) => {
+          <View style={[styles.pickList, { backgroundColor: t.surface, borderColor: t.divider }]}>
+            {data?.words.map((w, i) => {
               const on = picked.includes(w.id);
               return (
-                <Pressable key={w.id} onPress={() => setPicked((cur) => toggle(cur, w.id))} accessibilityRole="checkbox" accessibilityState={{ checked: on }} style={styles.wordRow}>
+                <Pressable
+                  key={w.id}
+                  onPress={() => setPicked((cur) => toggle(cur, w.id))}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={`${w.korean}: ${w.meanings.join('; ')}`}
+                  accessibilityState={{ checked: on }}
+                  style={[styles.wordRow, i > 0 && { borderTopColor: t.divider, borderTopWidth: StyleSheet.hairlineWidth }]}>
                   <Icon name={on ? 'check-square' : 'square'} color={on ? t.primary : t.textDim} />
-                  <Text style={[styles.word, { color: t.text }]}>{w.korean}</Text>
-                  <Text style={[styles.flex, { color: t.textDim }]} numberOfLines={1}>
+                  <Text variant="korean">{w.korean}</Text>
+                  <Text style={[typeScale.secondary, styles.flex, { color: t.textDim }]} numberOfLines={1}>
                     {w.meanings.join('; ')}
                   </Text>
                 </Pressable>
               );
             })}
-          </Card>
+          </View>
         </>
       ) : (
         <>
           <Section>{tr('freeCount')}</Section>
           <View style={styles.chips}>
-            {COUNTS.map((n) => (
+            {FREE_COUNTS.map((n) => (
               <Chip key={n} label={String(n)} active={limit === n} onPress={() => setLimit(n)} />
             ))}
           </View>
         </>
       )}
 
-      <Section>{tr('promptTitle')}</Section>
-      {option('text', prompt, setPrompt, tr('promptText'), tr('promptTextHint'))}
-      {option('audio', prompt, setPrompt, tr('promptAudio'), tr('promptAudioHint'))}
-      {option('dictation', prompt, setPrompt, tr('promptDictation'), tr('promptDictationHint'))}
-      {listening ? <Body dim>{tr('listeningNoSchedule')}</Body> : null}
+      {/* Advanced: collapsed, with what is chosen visible in one line. */}
+      <Pressable onPress={() => setAdvanced((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: advanced }} accessibilityLabel={`${tr('advanced')}. ${summary}`} style={styles.advanced}>
+        <View style={styles.flex}>
+          <Text style={typeScale.bodyStrong}>{tr('advanced')}</Text>
+          <Text style={[typeScale.secondary, { color: t.textDim }]}>{summary}</Text>
+        </View>
+        <Icon name={advanced ? 'chevron-up' : 'chevron-down'} color={t.textDim} />
+      </Pressable>
 
-      {!listening ? (
+      {advanced ? (
         <>
-          <Section>{tr('freeDirection')}</Section>
-          <View style={styles.chips}>
-            <Chip label={tr('dirKoRu')} active={dirs === 'ko_ru'} onPress={() => setDirs('ko_ru')} />
-            <Chip label={tr('dirRuKo')} active={dirs === 'ru_ko'} onPress={() => setDirs('ru_ko')} />
-            <Chip label={tr('dirBoth')} active={dirs === 'both'} onPress={() => setDirs('both')} />
-          </View>
+          {!listening ? (
+            <>
+              <Section>{tr('freeDirection')}</Section>
+              <SegmentedControl
+                value={dirs}
+                onChange={setDirs}
+                options={[
+                  { value: 'both', label: tr('dirBothShort') },
+                  { value: 'ko_ru', label: tr('dirKoRu') },
+                  { value: 'ru_ko', label: tr('dirRuKo') },
+                ]}
+              />
+            </>
+          ) : (
+            <Body dim>{tr('listeningNoSchedule')}</Body>
+          )}
+          <Section>{tr('answerMethod')}</Section>
+          <SegmentedControl
+            value={method}
+            onChange={setMethod}
+            options={[
+              { value: 'keyboard', label: tr('methodKeyboard') },
+              { value: 'self_grade', label: tr('methodSelf') },
+              { value: 'choice', label: tr('methodChoiceShort') },
+            ]}
+          />
+          <Body dim>{tr(method === 'keyboard' ? 'methodKeyboardHint' : method === 'self_grade' ? 'methodSelfHint' : 'methodChoiceHint')}</Body>
+          <ListGroup>
+            <ListRow
+              title={tr('freeAttempts')}
+              subtitle={tr('freeAttemptsHint')}
+              chevron={false}
+              trailing={
+                <Row style={styles.stepper}>
+                  <IconBtn name="minus" label={`${tr('freeAttempts')} −`} color={t.primary} disabled={attempts <= 1} onPress={() => setAttempts(attempts - 1)} />
+                  <Text style={[typeScale.bodyStrong, styles.value]}>{attempts}</Text>
+                  <IconBtn name="plus" label={`${tr('freeAttempts')} +`} color={t.primary} disabled={attempts >= 10} onPress={() => setAttempts(attempts + 1)} />
+                </Row>
+              }
+            />
+            {countable ? <SettingsRow label={tr('countAsReview')} hint={tr('countAsReviewHint')} toggle={countAsReview} onToggle={setCountAsReview} /> : null}
+          </ListGroup>
         </>
       ) : null}
-
-      <Section>{tr('answerMethod')}</Section>
-      {option('keyboard', method, setMethod, tr('methodKeyboard'), tr('methodKeyboardHint'))}
-      {option('self_grade', method, setMethod, tr('methodSelf'), tr('methodSelfHint'))}
-      {option('choice', method, setMethod, tr('methodChoice'), tr('methodChoiceHint'))}
-
-      <Section>{tr('freeAttempts')}</Section>
-      <Card>
-        <Row style={styles.between}>
-          <IconBtn name="minus-circle" label={`${tr('freeAttempts')} −`} color={t.primary} onPress={() => setAttempts(attempts - 1)} />
-          <Text style={[styles.value, { color: t.text }]}>{attempts}</Text>
-          <IconBtn name="plus-circle" label={`${tr('freeAttempts')} +`} color={t.primary} onPress={() => setAttempts(attempts + 1)} />
-        </Row>
-        <Body dim>{tr('freeAttemptsHint')}</Body>
-      </Card>
-
-      {listening ? null : (
-      <Card>
-        <Row style={styles.between}>
-          <Text style={[styles.flex, { color: method === 'choice' ? t.textDim : t.text, fontSize: 16 }]}>{tr('countAsReview')}</Text>
-          <Switch value={countAsReview && method !== 'choice'} disabled={method === 'choice'} onValueChange={setCountAsReview} trackColor={{ true: t.primary }} accessibilityLabel={tr('countAsReview')} />
-        </Row>
-        <Body dim>{tr('countAsReviewHint')}</Body>
-      </Card>
-      )}
     </Screen>
   );
 }
@@ -212,13 +253,9 @@ export default function FreePractice() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  option: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.md, borderWidth: 1, minHeight: 60 },
-  optionTitle: { fontSize: 16, fontWeight: '600' },
-  optionHint: { fontSize: 13 },
-  strong: { fontSize: 16, fontWeight: '700' },
-  between: { justifyContent: 'space-between' },
-  word: { fontSize: 18, fontWeight: '600' },
-  list: { paddingVertical: space.xs, gap: 0 },
-  wordRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 48 },
-  value: { fontSize: 20, fontWeight: '700' },
+  pickList: { borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  wordRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: size.row, paddingHorizontal: space.lg },
+  advanced: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: size.row, marginTop: space.sm },
+  stepper: { gap: 0 },
+  value: { minWidth: 24, textAlign: 'center' },
 });

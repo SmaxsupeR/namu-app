@@ -13,9 +13,11 @@ import { checkDrill, makeDrill, type DrillTask } from '../grammar/drill';
 import { topicById, TOPICS, type GrammarTopic } from '../grammar/topics';
 import { speakKorean } from '../services/speech';
 import { useApp } from '../state/store';
-import { Bar, Body, Btn, Card, Empty, Field, IconBtn, Row, Screen, type InputRef } from '../ui/components';
+import { Body, Btn, EmptyState, Field, Icon, IconBtn, LoadingState, Row, type InputRef } from '../ui/components';
+import { ListGroup, ListRow } from '../ui/rows';
+import { StudyShell } from '../ui/StudyShell';
 import { useInterval, useT } from '../ui/i18n';
-import { space, useTheme } from '../ui/theme';
+import { radius, space, type as typeScale, useTheme } from '../ui/theme';
 
 type Task = DrillTask & { topic: GrammarTopic };
 
@@ -107,12 +109,22 @@ export default function GrammarDrill() {
   const title = isReview ? tr('grammarReviewTitle') : (topicById(id ?? '')?.pattern ?? '');
   const byTopic = useMemo(() => new Map(scheduled?.map((c) => [c.topicId, c]) ?? []), [scheduled]);
 
-  if (!tasks) return <Screen><Stack.Screen options={{ title }} /></Screen>;
+  // The drill is a study screen: its own close button and progress, no navigation header.
+  const hideHeader = <Stack.Screen options={{ title, headerShown: false }} />;
+  if (!tasks) {
+    return (
+      <StudyShell progress={0} onClose={() => router.back()} closeLabel={tr('leave')}>
+        {hideHeader}
+        <LoadingState />
+      </StudyShell>
+    );
+  }
   if (tasks.length === 0) {
-    return isReview ? (
-      <Empty icon="check-circle" title={tr('grammarNothingDue')} action={<Btn kind="soft" title={tr('finish')} onPress={() => router.back()} />} />
-    ) : (
-      <Empty icon="alert-circle" title={tr('nothingFound')} />
+    return (
+      <StudyShell progress={0} onClose={() => router.back()} closeLabel={tr('leave')} footer={<Btn title={tr('finish')} onPress={() => router.back()} />}>
+        {hideHeader}
+        {isReview ? <EmptyState icon="check-circle" title={tr('grammarNothingDue')} /> : <EmptyState icon="alert-circle" title={tr('nothingFound')} />}
+      </StudyShell>
     );
   }
   const task = tasks[Math.min(i, tasks.length - 1)];
@@ -150,44 +162,60 @@ export default function GrammarDrill() {
   if (done) {
     const now = Date.now();
     return (
-      <Screen footer={isReview ? <Btn icon="check" title={tr('finish')} onPress={() => router.back()} /> : <Btn icon="refresh-cw" title={tr('grammarAgain')} onPress={again} />}>
-        <Stack.Screen options={{ title }} />
-        <Text style={[styles.big, { color: t.text }]}>{tr('grammarScore', { n: right, total: tasks.length })}</Text>
-        <Bar value={right / tasks.length} />
+      <StudyShell
+        progress={1}
+        onClose={() => router.back()}
+        closeLabel={tr('finish')}
+        footer={
+          isReview ? (
+            <Btn icon="check" title={tr('finish')} onPress={() => router.back()} />
+          ) : (
+            <>
+              <Btn icon="refresh-cw" title={tr('grammarAgain')} onPress={again} />
+              <Btn kind="ghost" icon="book-open" title={tr('grammarBackToTopic')} onPress={() => router.back()} />
+            </>
+          )
+        }>
+        {hideHeader}
+        <View style={styles.centered}>
+          <Text variant="title" accessibilityRole="header">
+            {tr('grammarScore', { n: right, total: tasks.length })}
+          </Text>
+          <Text style={[typeScale.secondary, { color: t.textDim }]}>{title}</Text>
+        </View>
         {missed.length ? (
-          <Card>
-            <Text style={[styles.h, { color: t.text }]}>{tr('grammarReview')}</Text>
-            {missed.map((m) => (
-              <Text key={m} style={[styles.missed, { color: t.text }]}>
-                {m}
-              </Text>
-            ))}
-          </Card>
+          <>
+            <Text style={[typeScale.caption, { color: t.textDim }]}>{tr('grammarReview')}</Text>
+            <ListGroup>
+              {missed.map((m) => (
+                <ListRow key={m} title={m} chevron={false} />
+              ))}
+            </ListGroup>
+          </>
         ) : null}
         {scheduled && scheduled.length ? (
-          <Card>
-            <Text style={[styles.h, { color: t.text }]}>{tr('grammarNextReview')}</Text>
-            {Object.keys(tally).map((topicId) => {
-              const c = byTopic.get(topicId);
-              const x = topicById(topicId);
-              return c && x ? (
-                <Row key={topicId} style={styles.between}>
-                  <Text style={[styles.topicName, { color: t.text }]} numberOfLines={1}>
-                    {x.pattern}
-                  </Text>
-                  <Text style={{ color: t.textDim }}>{tr('grammarIn', { t: interval(Math.max(0, c.due - now)) })}</Text>
-                </Row>
-              ) : null;
-            })}
-          </Card>
+          <>
+            <Text style={[typeScale.caption, { color: t.textDim }]}>{tr('grammarNextReview')}</Text>
+            <ListGroup>
+              {Object.keys(tally).map((topicId) => {
+                const c = byTopic.get(topicId);
+                const x = topicById(topicId);
+                return c && x ? <ListRow key={topicId} title={x.pattern} value={tr('grammarIn', { t: interval(Math.max(0, c.due - now)) })} chevron={false} /> : null;
+              })}
+            </ListGroup>
+          </>
         ) : null}
-        {!isReview ? <Btn kind="soft" icon="book-open" title={tr('grammarBackToTopic')} onPress={() => router.back()} /> : null}
-      </Screen>
+      </StudyShell>
     );
   }
 
   return (
-    <Screen
+    <StudyShell
+      progress={i / tasks.length}
+      onClose={() => router.back()}
+      closeLabel={tr('leave')}
+      title={tr('grammarTask', { n: i + 1, total: tasks.length })}
+      badge={isReview ? topic.title : title}
       footer={
         result === null ? (
           <Btn title={tr('check')} icon="check" disabled={given.trim() === ''} onPress={check} />
@@ -195,15 +223,12 @@ export default function GrammarDrill() {
           <Btn title={i + 1 < tasks.length ? tr('next') : tr('grammarFinish')} icon="arrow-right" onPress={next} />
         )
       }>
-      <Stack.Screen options={{ title }} />
-      <Bar value={i / tasks.length} />
-      <Body dim>{tr('grammarTask', { n: i + 1, total: tasks.length })}</Body>
-      <Card style={styles.task}>
-        <Text style={[styles.base, { color: t.text }]}>{task.base}</Text>
-        <Text style={[styles.ru, { color: t.textDim }]}>{task.ru}</Text>
+      {hideHeader}
+      <View style={styles.centered}>
+        <Text variant="koreanPrompt">{task.base}</Text>
+        <Text style={[typeScale.body, { color: t.textDim }]}>{task.ru}</Text>
         <Text style={[styles.target, { color: t.primary }]}>+ {task.target}</Text>
-        {isReview ? <Text style={[styles.ru, { color: t.textDim }]}>{topic.title}</Text> : null}
-      </Card>
+      </View>
       <Field
         ref={input}
         value={given}
@@ -219,32 +244,30 @@ export default function GrammarDrill() {
         accessibilityLabel={tr('grammarAnswer')}
       />
       {result !== null ? (
-        <Card style={{ borderColor: result ? t.primary : t.danger }}>
+        <View style={[styles.outcome, { backgroundColor: result ? t.successSoft : t.dangerSoft }]}>
           <Row>
+            <Icon name={result ? 'check-circle' : 'x-circle'} size={22} color={result ? t.success : t.danger} />
             <View style={styles.flex}>
-              <Text style={[styles.h, { color: result ? t.primary : t.danger }]}>{result ? tr('correct') : tr('grammarWrong')}</Text>
-              <Text style={[styles.answer, { color: t.text }]}>{task.answer}</Text>
+              <Text style={[styles.h, { color: result ? t.success : t.danger }]} accessibilityLiveRegion="polite">
+                {result ? tr('correct') : tr('grammarWrong')}
+              </Text>
+              <Text style={styles.answer}>{task.answer}</Text>
             </View>
             <IconBtn name="volume-2" label={tr('listen')} color={t.primary} onPress={() => speakKorean(task.answer)} />
           </Row>
           {!result && topic.rules ? <Body dim>{topic.rules.join(' · ')}</Body> : null}
-        </Card>
+        </View>
       ) : null}
-    </Screen>
+    </StudyShell>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  task: { alignItems: 'center', paddingVertical: space.lg, gap: 4 },
-  base: { fontSize: 32, fontWeight: '700' },
-  ru: { fontSize: 15 },
+  centered: { alignItems: 'center', gap: space.xs },
   target: { fontSize: 20, fontWeight: '700', marginTop: space.sm },
   input: { fontSize: 24, textAlign: 'center' },
   h: { fontSize: 16, fontWeight: '700' },
   answer: { fontSize: 22, fontWeight: '600', marginTop: 2 },
-  big: { fontSize: 28, fontWeight: '700' },
-  missed: { fontSize: 17 },
-  between: { justifyContent: 'space-between' },
-  topicName: { fontSize: 16, flex: 1 },
+  outcome: { borderRadius: radius.lg, padding: space.lg, gap: space.sm },
 });

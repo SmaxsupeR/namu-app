@@ -1,8 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Alert, BackHandler, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../ui/Text';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DiffPart } from '../core/answer';
 import type { Outcome as AttemptOutcome } from '../core/attempt';
 import { buildChoiceOptions, checkChoice, checkKeyboard, checkSelfGrade, listeningAnswerSide, type PromptMode } from '../core/exercises';
@@ -12,9 +11,12 @@ import { getDb } from '../db';
 import { applyEvent, finishSession, getDistractorPool, getEntries, getTodayWordIds, planFreePractice, planSession, startSession, type Entry, type FreeSource } from '../db/repo';
 import { prepareSpeech, speakKorean, stopSpeech } from '../services/speech';
 import { directionList, SLOW_RATE, useApp } from '../state/store';
-import { Bar, Body, Btn, Card, Empty, Icon, IconBtn, Row } from '../ui/components';
+import { Body, Btn, EmptyState, Icon, IconBtn, LoadingState, Row } from '../ui/components';
+import { ListGroup, ListRow } from '../ui/rows';
+import { useConfirm } from '../ui/sheets';
+import { StudyShell } from '../ui/StudyShell';
 import { useInterval, useT } from '../ui/i18n';
-import { fonts, radius, space, useTheme } from '../ui/theme';
+import { fonts, radius, space, type as typeScale, useTheme } from '../ui/theme';
 
 /** What the learner sees after answering, before tapping "Next". */
 interface Feedback {
@@ -76,7 +78,9 @@ export default function Study() {
   const tr = useT();
   const interval = useInterval();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { dialog, confirm } = useConfirm();
+  /** A problem to show on screen (works on the web too, unlike the system alert). */
+  const [notice, setNotice] = useState('');
   const settings = useApp((s) => s.settings);
   const touch = useApp((s) => s.touch);
 
@@ -144,7 +148,7 @@ export default function Study() {
         [...entries.current.values()].map((e) => e.korean),
         1,
       );
-    })().catch((e: unknown) => Alert.alert(tr('error'), e instanceof Error ? e.message : String(e)));
+    })().catch((e: unknown) => setNotice(`${tr('error')}: ${e instanceof Error ? e.message : String(e)}`));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -155,7 +159,7 @@ export default function Study() {
   const speak = useCallback(
     async (text: string, quiet = false) => {
       const ok = await speakKorean(text);
-      if (!ok && !quiet) Alert.alert(tr('noVoiceTitle'), tr('noVoiceText'));
+      if (!ok && !quiet) setNotice(tr('noVoiceText'));
     },
     [tr],
   );
@@ -183,7 +187,7 @@ export default function Study() {
   /** The side of the word an answer gives: the card's direction, or what listening asks for. */
   const answerSide = (c: LearnCard): Direction => (listening ? listeningAnswerSide(prompt) : c.direction);
 
-  const fail = (e: unknown) => Alert.alert(tr('error'), e instanceof Error ? e.message : String(e));
+  const fail = (e: unknown) => setNotice(`${tr('error')}: ${e instanceof Error ? e.message : String(e)}`);
 
   /** Runs one step of the state machine and saves it. The screen keeps showing this question until "Next". */
   const commit = async (outcome: Omit<AttemptOutcome, 'at' | 'durationMs'>, view: Feedback) => {
@@ -283,12 +287,11 @@ export default function Study() {
       close();
       return true;
     }
-    Alert.alert(tr('leaveTitle'), tr('leaveText'), [
-      { text: tr('stay'), style: 'cancel' },
-      { text: tr('leave'), onPress: close },
-    ]);
+    confirm({ title: tr('leaveTitle'), message: tr('leaveText'), confirmLabel: tr('leave'), cancelLabel: tr('stay') }).then((ok) => {
+      if (ok) void close();
+    });
     return true;
-  }, [session, close, tr]);
+  }, [session, close, tr, confirm]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', askLeave);
@@ -315,16 +318,19 @@ export default function Study() {
     router.replace(`/study?${q.toString()}`);
   };
 
-  const header = (
-    <Row style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-      <IconBtn name="x" label={tr('leave')} onPress={askLeave} />
-      <View style={styles.flex}>
-        <Bar value={session ? progress(session) : 0} />
-      </View>
-    </Row>
-  );
+  const noticeLine = notice ? (
+    <Text style={[typeScale.secondary, styles.center, { color: t.danger }]} accessibilityLiveRegion="polite">
+      {notice}
+    </Text>
+  ) : null;
 
-  if (!session) return <View style={[styles.flex, { backgroundColor: t.bg }]}>{header}</View>;
+  if (!session) {
+    return (
+      <StudyShell progress={0} onClose={askLeave} closeLabel={tr('leave')}>
+        {noticeLine ?? <LoadingState />}
+      </StudyShell>
+    );
+  }
 
   // ---------- Finished ----------
   if (!task && !feedback) {
@@ -332,67 +338,67 @@ export default function Study() {
     const minutes = Math.max(1, Math.round((Date.now() - startedAt.current) / 60000));
     const empty = st.answers === 0 && st.introduced === 0;
     return (
-      <View style={[styles.flex, { backgroundColor: t.bg, paddingBottom: insets.bottom + space.lg }]}>
-        {header}
-        <ScrollView contentContainerStyle={styles.body}>
-          {empty ? (
-            session.kind === 'free' ? (
-              <Empty icon="search" title={tr('freeEmpty')} />
-            ) : (
-              <Empty icon="calendar" title={tr('nothingToStudy')} text={tr('nothingToStudyText')} />
-            )
+      <StudyShell
+        progress={1}
+        onClose={close}
+        closeLabel={tr('finish')}
+        footer={
+          <>
+            {/* Planned study is over for now; extra practice is free practice, which keeps the schedule intact. */}
+            {session.kind === 'scheduled' && !empty ? <Btn kind="ghost" icon="repeat" title={tr('consolidateSession')} onPress={() => consolidate(sessionWordIds(session))} /> : null}
+            {session.kind === 'scheduled' && empty && todayWords.current > 0 ? <Btn kind="ghost" icon="repeat" title={tr('consolidateToday')} onPress={() => consolidate(null)} /> : null}
+            {session.kind === 'scheduled' && empty ? <Btn kind="ghost" icon="sliders" title={tr('freeTitle')} onPress={() => router.replace('/free')} /> : null}
+            <Btn title={tr('finish')} onPress={close} />
+          </>
+        }>
+        {empty ? (
+          session.kind === 'free' ? (
+            <EmptyState icon="search" title={tr('freeEmpty')} />
           ) : (
-            <Empty icon="award" title={tr('sessionDone')} />
-          )}
-          {!empty ? (
-            <View style={styles.summary}>
-              {session.kind === 'free' ? (
-                <Body dim style={styles.center}>
-                  {st.reviewed > 0 ? tr('freeCountedNote', { n: st.reviewed }) : tr('freeNoScheduleNote')}
-                </Body>
-              ) : (
-                <Row style={styles.summaryRow}>
-                  <Summary label={tr('sumIntroduced')} value={String(st.introduced)} />
-                  <Summary label={tr('sumLearned')} value={String(st.learnedWords.length)} />
-                  <Summary label={tr('sumReviewed')} value={st.reviewed > 0 ? `${st.reviewCorrect}/${st.reviewed}` : '0'} />
-                </Row>
-              )}
-              <Row style={styles.summaryRow}>
-                <Summary label={tr('sumAccuracy')} value={st.answers > 0 ? `${Math.round((st.correct / st.answers) * 100)}%` : '—'} />
-                <Summary label={tr('sessionTime')} value={tr('minutes', { n: minutes })} />
-              </Row>
+            <EmptyState icon="calendar" title={tr('nothingToStudy')} text={tr('nothingToStudyText')} />
+          )
+        ) : (
+          <>
+            <View style={styles.centered}>
+              <Icon name="award" size={40} color={t.primary} />
+              <Text variant="title" style={styles.center} accessibilityRole="header">
+                {tr('sessionDone')}
+              </Text>
+              <Text style={[typeScale.secondary, styles.center, { color: t.textDim }]}>
+                {session.kind === 'free' ? (st.reviewed > 0 ? tr('freeCountedNote', { n: st.reviewed }) : tr('freeNoScheduleNote')) : tr('consolidateHint')}
+              </Text>
             </View>
-          ) : null}
-        </ScrollView>
-        <View style={styles.footer}>
-          {/* Planned study is over for now; extra practice is free practice, which keeps the schedule intact. */}
-          {session.kind === 'scheduled' && !empty ? (
-            <>
-              <Body dim style={styles.center}>
-                {tr('consolidateHint')}
-              </Body>
-              <Btn kind="soft" icon="repeat" title={tr('consolidateSession')} onPress={() => consolidate(sessionWordIds(session))} />
-            </>
-          ) : null}
-          {session.kind === 'scheduled' && empty && todayWords.current > 0 ? (
-            <Btn kind="soft" icon="repeat" title={tr('consolidateToday')} onPress={() => consolidate(null)} />
-          ) : null}
-          {session.kind === 'scheduled' && empty ? <Btn kind="ghost" icon="sliders" title={tr('freeTitle')} onPress={() => router.replace('/free')} /> : null}
-          <Btn title={tr('finish')} onPress={close} />
-        </View>
-      </View>
+            <ListGroup>
+              {session.kind === 'scheduled' ? <ListRow title={tr('sumIntroduced')} value={String(st.introduced)} chevron={false} /> : null}
+              {session.kind === 'scheduled' ? <ListRow title={tr('sumLearned')} value={String(st.learnedWords.length)} chevron={false} /> : null}
+              {session.kind === 'scheduled' ? <ListRow title={tr('sumReviewed')} value={st.reviewed > 0 ? `${st.reviewCorrect}/${st.reviewed}` : '0'} chevron={false} /> : null}
+              <ListRow title={tr('sumAccuracy')} value={st.answers > 0 ? `${Math.round((st.correct / st.answers) * 100)}%` : '—'} chevron={false} />
+              <ListRow title={tr('sessionTime')} value={tr('minutes', { n: minutes })} chevron={false} />
+            </ListGroup>
+          </>
+        )}
+        {noticeLine}
+      </StudyShell>
     );
   }
 
   const view = feedback ? shown : task && entry ? { task, entry, card } : null;
-  if (!view) return <View style={[styles.flex, { backgroundColor: t.bg }]}>{header}</View>;
+  if (!view) {
+    return (
+      <StudyShell progress={progress(session)} onClose={askLeave} closeLabel={tr('leave')}>
+        <LoadingState />
+      </StudyShell>
+    );
+  }
   const e = view.entry;
   const reading = e.transcription || e.romanization;
 
   const korean = (big = true, listen = true) => (
     <View style={styles.centered}>
       <Row style={styles.wrapRow}>
-        <Text style={[big ? styles.korean : styles.koreanSmall, { color: t.text }]}>{e.korean}</Text>
+        <Text variant={big ? 'koreanPrompt' : undefined} style={[big ? styles.korean : styles.koreanSmall, { color: t.text }]}>
+          {e.korean}
+        </Text>
         {listen ? <IconBtn name="volume-2" label={tr('listen')} color={t.primary} onPress={() => speak(e.korean)} /> : null}
       </Row>
       {settings.showRomanization && reading ? <Text style={[styles.reading, { color: t.textDim }]}>{e.transcription ? reading : `≈ ${reading}`}</Text> : null}
@@ -420,14 +426,14 @@ export default function Study() {
         <Body dim style={styles.center}>
           {tr('introHint')}
         </Body>
-        <Card style={styles.card}>
+        <View style={styles.stage}>
           {korean()}
           {!settings.showRomanization && reading ? <Text style={[styles.reading, { color: t.textDim }]}>{e.transcription ? reading : `≈ ${reading}`}</Text> : null}
           {divider}
           {meaning}
           {example}
           {e.notes ? <Body dim>{e.notes}</Body> : null}
-        </Card>
+        </View>
       </>
     );
     footer = <Btn title={tr('next')} disabled={busy} onPress={finishIntro} />;
@@ -481,7 +487,7 @@ export default function Study() {
       const isRight = (o: string) => (side === 'ko_ru' ? e.meanings.includes(o) : o === e.korean);
       content = (
         <>
-          <Card style={styles.card}>{front(!!feedback)}</Card>
+          <View style={styles.stage}>{front(!!feedback)}</View>
           {list.map((o) => {
             const reveal = feedback && (isRight(o) || o === feedback.picked);
             const color = reveal ? (isRight(o) ? t.primary : t.danger) : t.border;
@@ -501,7 +507,7 @@ export default function Study() {
           })}
           {feedback ? (
             <>
-              {dir === 'ru_ko' && !listening ? <Card style={styles.card}>{korean(false)}</Card> : null}
+              {dir === 'ru_ko' && !listening ? <View style={styles.stage}>{korean(false)}</View> : null}
               <Outcome feedback={feedback} interval={interval} />
             </>
           ) : null}
@@ -514,7 +520,7 @@ export default function Study() {
       const grades = settings.detailedGrading ? SELF_GRADES_DETAILED : SELF_GRADES_SIMPLE;
       content = (
         <>
-          <Card style={styles.card}>
+          <View style={styles.stage}>
             {front(revealed || !!feedback)}
             {revealed || feedback ? (
               <>
@@ -523,7 +529,7 @@ export default function Study() {
                 {example}
               </>
             ) : null}
-          </Card>
+          </View>
           {feedback ? <Outcome feedback={feedback} interval={interval} /> : revealed ? <Body dim style={styles.center}>{tr('selfGradeHint')}</Body> : null}
         </>
       );
@@ -543,7 +549,7 @@ export default function Study() {
       title = listening ? listenTitle : dir === 'ko_ru' ? tr('stepRecallKoRu') : tr('stepRecallRuKo');
       content = (
         <>
-          <Card style={styles.card}>
+          <View style={styles.stage}>
             {front(!!feedback)}
             {feedback ? (
               <>
@@ -552,7 +558,7 @@ export default function Study() {
                 {example}
               </>
             ) : null}
-          </Card>
+          </View>
           {!feedback ? (
             <TextInput
               value={typed}
@@ -587,23 +593,11 @@ export default function Study() {
   }
 
   return (
-    <KeyboardAvoidingView behavior="padding" style={[styles.flex, { backgroundColor: t.bg }]}>
-      {header}
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: t.text }]} accessibilityRole="header">
-            {title}
-          </Text>
-          {badge ? (
-            <View style={[styles.badge, { backgroundColor: t.infoSoft }]}>
-              <Text style={[styles.badgeText, { color: t.info }]}>{badge}</Text>
-            </View>
-          ) : null}
-        </View>
-        {content}
-      </ScrollView>
-      <View style={[styles.footer, { paddingBottom: insets.bottom + space.md }]}>{footer}</View>
-    </KeyboardAvoidingView>
+    <StudyShell progress={progress(session)} onClose={askLeave} closeLabel={tr('leave')} title={title} badge={badge ?? undefined} footer={footer}>
+      {content}
+      {noticeLine}
+      {dialog}
+    </StudyShell>
   );
 }
 
@@ -613,11 +607,14 @@ function Outcome({ feedback: f, interval }: { feedback: Feedback; interval: (ms:
   const ok = f.correct;
   const heading = f.selfGraded ? (ok ? tr('selfGradedOk') : tr('dontKnowShown')) : ok ? (f.form ? tr('correctForm') : f.typo ? tr('correctTypo') : tr('correct')) : f.dontKnow ? tr('dontKnowShown') : tr('wrong');
   return (
-    <Card style={{ backgroundColor: ok ? t.primarySoft : t.dangerSoft, borderColor: 'transparent' }}>
+    <View style={[styles.outcome, { backgroundColor: ok ? t.successSoft : t.dangerSoft }]}>
       <Row style={styles.between}>
-        <Text style={[styles.verdict, { color: ok ? t.primary : t.danger }]} accessibilityLiveRegion="polite">
-          {heading}
-        </Text>
+        <Row style={styles.shrink}>
+          <Icon name={ok ? 'check-circle' : 'x-circle'} size={22} color={ok ? t.success : t.danger} />
+          <Text style={[styles.verdict, { color: ok ? t.success : t.danger }]} accessibilityLiveRegion="polite">
+            {heading}
+          </Text>
+        </Row>
         {f.graduated ? (
           <View style={[styles.badge, { backgroundColor: t.primary }]}>
             <Text style={[styles.badgeText, { color: t.onPrimary }]}>{tr('learnedBadge')}</Text>
@@ -654,7 +651,7 @@ function Outcome({ feedback: f, interval }: { feedback: Feedback; interval: (ms:
       {f.nextDueMs !== undefined && ok ? <Body dim>{tr('nextReview', { t: interval(f.nextDueMs) })}</Body> : null}
       {f.after === 'parked' ? <Body dim>{tr('parked')}</Body> : null}
       {!ok && f.after !== 'parked' && f.after !== 'done' ? <Body dim>{tr('willRepeat')}</Body> : null}
-    </Card>
+    </View>
   );
 }
 
@@ -679,29 +676,16 @@ function GradeBtn({ grade, disabled, onPress }: { grade: SelfGrade; disabled: bo
   );
 }
 
-function Summary({ label, value }: { label: string; value: string }) {
-  const t = useTheme();
-  return (
-    <Card style={styles.summaryTile}>
-      <Text style={[styles.summaryValue, { color: t.text }]}>{value}</Text>
-      <Text style={[styles.summaryLabel, { color: t.textDim }]}>{label}</Text>
-    </Card>
-  );
-}
-
 const styles = StyleSheet.create({
   playBig: { width: 112, height: 112, borderRadius: 56, alignItems: 'center', justifyContent: 'center', marginBottom: space.sm },
   flex: { flex: 1 },
   center: { textAlign: 'center' },
-  header: { paddingHorizontal: space.sm, paddingRight: space.lg, gap: space.sm },
-  body: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: space.lg, gap: space.md },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: space.lg, gap: space.md },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, flexWrap: 'wrap' },
-  title: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
-  card: { alignItems: 'center', paddingVertical: space.xl, gap: space.md, borderRadius: radius.lg },
+  stage: { alignItems: 'center', paddingVertical: space.lg, gap: space.md },
+  outcome: { borderRadius: radius.lg, padding: space.lg, gap: space.xs },
+  shrink: { flexShrink: 1 },
   centered: { alignItems: 'center', gap: 4 },
   wrapRow: { flexWrap: 'wrap', justifyContent: 'center' },
-  korean: { fontSize: 40, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
+  korean: { textAlign: 'center', flexShrink: 1 },
   koreanSmall: { fontSize: 28, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   reading: { fontSize: 15 },
   meaning: { fontSize: 24, fontWeight: '600', textAlign: 'center' },
@@ -718,13 +702,7 @@ const styles = StyleSheet.create({
   given: { fontSize: 16 },
   diffLabel: { fontSize: 12, fontWeight: '600', marginTop: 4 },
   diffLine: { fontSize: 26 },
-  footer: { paddingHorizontal: space.lg, paddingTop: space.sm, gap: space.sm, minHeight: 60 },
   buttons: { gap: space.sm },
   grade: { flex: 1, minHeight: 56, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, overflow: 'hidden' },
   gradeText: { fontSize: 16, fontWeight: '700' },
-  summary: { gap: space.md },
-  summaryRow: { gap: space.md, alignItems: 'stretch' },
-  summaryTile: { flex: 1, alignItems: 'center', padding: space.md },
-  summaryValue: { fontSize: 22, fontWeight: '700' },
-  summaryLabel: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
 });
