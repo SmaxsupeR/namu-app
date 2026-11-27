@@ -1,7 +1,8 @@
 // "Storage" card of the Speech settings: what Namu keeps on the phone and how to free it.
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { audioCache, packChanged, synthQueue, voicePacks } from '../services/speech';
 import { removeFullDict, useDictPack } from '../state/dictPack';
 import { CACHE_LIMITS_MB, type Settings } from '../state/store';

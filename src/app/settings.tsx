@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../ui/Text';
 import { getDb } from '../db';
 import { exportBackup, parseBackup, restoreBackup, savePreference } from '../db/repo';
 import { pickTextFile, shareTextFile, stamp } from '../services/files';

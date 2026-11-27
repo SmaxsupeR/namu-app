@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../../ui/Text';
 import { getOverview, getPlanCounts, listDictionaries } from '../../db/repo';
 import { directionList, useApp } from '../../state/store';
 import { Bar, Body, Btn, Card, Empty, Icon, IconBtn, Row, Screen, Section, Title } from '../../ui/components';

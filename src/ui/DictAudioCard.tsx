@@ -1,6 +1,7 @@
 // "Dictionary audio" card: download the pre-made recordings of all dictionary words.
 import { useEffect } from 'react';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
+import { Text } from './Text';
 import { dictAudioPack } from '../services/speech';
 import { voiceKind, type VoiceId } from '../services/tts/voices';
 import { cancelDictAudio, downloadDictAudio, refreshDictAudio, removeDictAudio, useDictAudio } from '../state/dictAudio';

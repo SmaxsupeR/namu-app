@@ -3,7 +3,8 @@
 // threshold can be tuned on the learner's own handwriting; they are sent only by the user.
 import { Stack } from 'expo-router/stack';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, StyleSheet, View } from 'react-native';
+import { Text } from '../ui/Text';
 import { InkCanvas, type InkCanvasRef } from '../../modules/namu-tts/InkCanvas';
 import { NamuTts, type InkResult } from '../../modules/namu-tts';
 import { getDictionary } from '../dict';

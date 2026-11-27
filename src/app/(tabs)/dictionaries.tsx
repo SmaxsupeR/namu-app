@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../../ui/Text';
 import { listDictionaries, type DictionarySummary } from '../../db/repo';
 import { Body, Btn, Card, Empty, Fab, Icon, IconBtn, Row, Screen, Title } from '../../ui/components';
 import { useT } from '../../ui/i18n';

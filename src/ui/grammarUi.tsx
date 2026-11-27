@@ -1,7 +1,8 @@
 // Grammar reference list and the conjugation table.
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { getDictionary } from '../dict';
 import { conjugate, type Conjugation, type FormId, type WordKind } from '../grammar/conjugate';
 import { FORM_LABEL, FORM_TOPIC, IRREGULAR_LABEL } from '../grammar/labels';

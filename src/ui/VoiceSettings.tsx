@@ -1,6 +1,7 @@
 // "Speech" section of the settings: which voice speaks, and the neural voice pack.
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, StyleSheet, Switch, View } from 'react-native';
+import { Text } from './Text';
 import { audioCache, neuralSupported, previewNeural, speakKorean, synthQueue } from '../services/speech';
 import type { QueueStatus } from '../services/tts/synthQueue';
 import type { EnginePreference } from '../services/tts/types';

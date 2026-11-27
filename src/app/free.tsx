@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../ui/Text';
 import { getDb } from '../db';
 import { getDifficultWords, listDictionaries, listEntries, savePreference, type Entry } from '../db/repo';
 import { useApp } from '../state/store';

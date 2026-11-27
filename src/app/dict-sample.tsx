@@ -3,7 +3,8 @@
 import { useRouter } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../ui/Text';
 import type { WordType } from '../core/wordTypes';
 import { getDb } from '../db';
 import { createAutoDictionary } from '../db/autoDict';

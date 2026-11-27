@@ -1,6 +1,7 @@
 // "Speech problems" card: why recent words were spoken with the phone voice.
 // Shown only when something went wrong; the log lives in memory and holds no words.
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Text } from './Text';
 import { clearSpeechLog, useSpeechLog } from '../state/speechLog';
 import { Body, Btn, Card } from './components';
 import { useT, type StringKey } from './i18n';

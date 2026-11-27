@@ -2,7 +2,8 @@
 // (iPhone: Share → Add to Home Screen) and reminds to make a backup now and then.
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, Text } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+import { Text } from './Text';
 import { Body, Btn, Card, Row } from './components';
 import { useT } from './i18n';
 import { useTheme } from './theme';

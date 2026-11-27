@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../../ui/Text';
 import { getAccuracy, getDailyActivity, getForecast, getHardestWords, getOverview, type AccuracyKind } from '../../db/repo';
 import { useApp } from '../../state/store';
 import { Bar, Body, Card, Empty, Row, Screen, Section, Title } from '../../ui/components';

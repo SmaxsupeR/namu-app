@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../ui/Text';
 import { getDb } from '../../db';
 import { getDifficultWords, getPlanCounts, listDictionaries, savePreference } from '../../db/repo';
 import { directionList, useApp, type DirectionSetting } from '../../state/store';

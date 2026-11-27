@@ -1,7 +1,8 @@
 // Licences of the bundled and downloadable content.
 import { Stack } from 'expo-router/stack';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Text } from '../ui/Text';
 import { DICT_ATTRIBUTION } from '../dict/lookup';
 import { voiceLicenseTexts } from '../services/speech';
 import { Body, Btn, Card, Screen } from '../ui/components';

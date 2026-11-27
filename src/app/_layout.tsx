@@ -1,8 +1,10 @@
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router/stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Text, useColorScheme, View } from 'react-native';
+import { useColorScheme, View } from 'react-native';
+import { Text } from '../ui/Text';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { getDb } from '../db';
 import { ensureFsrsConfig, loadPreferences } from '../db/repo';
@@ -11,12 +13,23 @@ import { settingsFromPrefs, useApp } from '../state/store';
 import { useT } from '../ui/i18n';
 import { refreshDueAutoDictionaries } from '../db/autoDict';
 import { getDictionary } from '../dict';
-import { useTheme } from '../ui/theme';
+import { fonts, useTheme } from '../ui/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+const FONT_FILES = {
+  [fonts.regular]: require('../../assets/fonts/Inter-Regular.ttf'),
+  [fonts.medium]: require('../../assets/fonts/Inter-Medium.ttf'),
+  [fonts.semibold]: require('../../assets/fonts/Inter-SemiBold.ttf'),
+  [fonts.bold]: require('../../assets/fonts/Inter-Bold.ttf'),
+};
+/* eslint-enable @typescript-eslint/no-require-imports */
+
 export default function RootLayout() {
   const t = useTheme();
+  // Bundled fonts: they load from the app itself, offline. If loading fails the system font is used.
+  const [fontsLoaded, fontError] = useFonts(FONT_FILES);
   const tr = useT();
   const dark = useColorScheme() === 'dark';
   const setSettings = useApp((s) => s.setSettings);
@@ -42,7 +55,7 @@ export default function RootLayout() {
       .finally(() => SplashScreen.hideAsync().catch(() => {}));
   }, [setSettings]);
 
-  if (state === 'loading') return <View style={{ flex: 1, backgroundColor: t.bg }} />;
+  if (state === 'loading' || (!fontsLoaded && !fontError)) return <View style={{ flex: 1, backgroundColor: t.bg }} />;
   if (state !== 'ready') {
     return (
       <View style={{ flex: 1, backgroundColor: t.bg, padding: 32, justifyContent: 'center' }}>

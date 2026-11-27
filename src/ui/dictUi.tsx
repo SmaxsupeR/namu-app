@@ -1,6 +1,7 @@
 // Building blocks of the dictionary tab and the word page.
 import { useEffect, type ReactNode } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { WORD_TYPES, type WordType } from '../core/wordTypes';
 import { POS_RU, type DictFilter, type DictWord } from '../dict/lookup';
 import { subjectName, topicName, TOP_TOPICS, TOPIC_RU as TOPIC_SUBS } from '../dict/topics';

@@ -4,7 +4,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../ui/Text';
 import { REVIEW_TASKS_PER_TOPIC, REVIEW_TOPICS_PER_SESSION } from '../core/grammarReview';
 import { getDb } from '../db';
 import { dueGrammarTopics, getGrammarCards, recordGrammarDrill, type GrammarCard } from '../db/grammar';

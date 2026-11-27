@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../ui/Text';
 import { getDb } from '../db';
 import { createDictionary, deleteDictionary, DICTIONARY_COLORS, duplicateDictionary, getDictionary, updateDictionary } from '../db/repo';
 import { useApp } from '../state/store';

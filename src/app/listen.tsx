@@ -3,7 +3,8 @@
 import { useLocalSearchParams } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../ui/Text';
 import { listenGapMs } from '../core/listening';
 import { getDifficultWords } from '../db/repo';
 import { speakKorean, stopSpeech } from '../services/speech';

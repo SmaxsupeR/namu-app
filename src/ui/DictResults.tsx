@@ -1,5 +1,6 @@
 // Dictionary search results on the "new word" screen: tap a meaning to fill the form.
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { POS_RU, type DictSense, type DictWord } from '../dict/lookup';
 import { Card, Icon, IconBtn, Row } from './components';
 import { useT, type StringKey } from './i18n';

@@ -3,7 +3,8 @@
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getDictionary } from '../../dict';
 import { browse, countWords, queryKind, search, subjectCounts, type DictFilter, type DictWord } from '../../dict/lookup';

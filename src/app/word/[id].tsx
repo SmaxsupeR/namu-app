@@ -3,7 +3,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../ui/Text';
 import { getDb } from '../../db';
 import { createEntry, duplicateKey, findDuplicates, listDictionaries, type DictionarySummary } from '../../db/repo';
 import { dictionaryEdition, getDictionary, type Edition } from '../../dict';

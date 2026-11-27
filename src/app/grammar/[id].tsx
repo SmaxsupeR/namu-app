@@ -1,7 +1,8 @@
 // One grammar topic: explanation, how the form is built, examples, mistakes, drill.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Stack } from 'expo-router/stack';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../../ui/Text';
 import { conjugate } from '../../grammar/conjugate';
 import { DRILL_WORDS } from '../../grammar/drill';
 import { FORM_LABEL } from '../../grammar/labels';
