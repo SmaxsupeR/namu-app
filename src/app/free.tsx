@@ -115,7 +115,7 @@ export default function FreePractice() {
       {source === 'hard' ? (
         <Card>
           {data && data.hard.length > 0 ? (
-            <Btn kind="soft" small icon="playlist-play" title={tr('hardListenAll')} onPress={() => router.push(`/listen?source=hard&dicts=${dicts.join(',')}`)} />
+            <Btn kind="soft" small icon="list" title={tr('hardListenAll')} onPress={() => router.push(`/listen?source=hard&dicts=${dicts.join(',')}`)} />
           ) : null}
           {data && data.hard.length === 0 ? <Body dim>{tr('hardNone')}</Body> : null}
           {data && data.hard.length > 0 ? <Text style={[styles.strong, { color: t.text }]}>{tr('hardCount', { n: data.hard.length })}</Text> : null}
@@ -143,7 +143,7 @@ export default function FreePractice() {
               const on = picked.includes(w.id);
               return (
                 <Pressable key={w.id} onPress={() => setPicked((cur) => toggle(cur, w.id))} accessibilityRole="checkbox" accessibilityState={{ checked: on }} style={styles.wordRow}>
-                  <Icon name={on ? 'checkbox-marked' : 'checkbox-blank-outline'} color={on ? t.primary : t.textDim} />
+                  <Icon name={on ? 'check-square' : 'square'} color={on ? t.primary : t.textDim} />
                   <Text style={[styles.word, { color: t.text }]}>{w.korean}</Text>
                   <Text style={[styles.flex, { color: t.textDim }]} numberOfLines={1}>
                     {w.meanings.join('; ')}
@@ -189,9 +189,9 @@ export default function FreePractice() {
       <Section>{tr('freeAttempts')}</Section>
       <Card>
         <Row style={styles.between}>
-          <IconBtn name="minus-circle-outline" label={`${tr('freeAttempts')} −`} color={t.primary} onPress={() => setAttempts(attempts - 1)} />
+          <IconBtn name="minus-circle" label={`${tr('freeAttempts')} −`} color={t.primary} onPress={() => setAttempts(attempts - 1)} />
           <Text style={[styles.value, { color: t.text }]}>{attempts}</Text>
-          <IconBtn name="plus-circle-outline" label={`${tr('freeAttempts')} +`} color={t.primary} onPress={() => setAttempts(attempts + 1)} />
+          <IconBtn name="plus-circle" label={`${tr('freeAttempts')} +`} color={t.primary} onPress={() => setAttempts(attempts + 1)} />
         </Row>
         <Body dim>{tr('freeAttemptsHint')}</Body>
       </Card>

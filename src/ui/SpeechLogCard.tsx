@@ -33,7 +33,7 @@ export function SpeechLogCard() {
           {e.error ? ` · ${e.error}` : ''}
         </Text>
       ))}
-      <Btn kind="soft" small icon="broom" title={tr('speechLogClear')} onPress={clearSpeechLog} />
+      <Btn kind="soft" small icon="trash" title={tr('speechLogClear')} onPress={clearSpeechLog} />
     </Card>
   );
 }

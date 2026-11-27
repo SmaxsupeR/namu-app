@@ -46,14 +46,14 @@ export function DictAudioCard({ settings }: { settings: Settings }) {
         <>
           <Body>{tr('voiceProgress', { done: mb(progress?.done ?? 0), total: mb(progress?.total ?? offer?.size ?? 0) })}</Body>
           <Bar value={progress && progress.total ? progress.done / progress.total : 0} />
-          <Btn kind="soft" small icon="close" title={tr('cancel')} onPress={cancelDictAudio} />
+          <Btn kind="soft" small icon="x" title={tr('cancel')} onPress={cancelDictAudio} />
         </>
       ) : installed ? (
         <>
           <Body dim>{tr('dictAudioInstalled', { n: installed.count, mb: mb(installed.bytes), voice: voiceName })}</Body>
           {otherVoice ? <Body style={{ color: t.warn }}>{tr('dictAudioOtherVoice', { voice: voiceName })}</Body> : null}
           {hasUpdate ? <Btn small icon="download" title={tr('voiceUpdate')} onPress={ask} /> : null}
-          <Btn kind="danger" small icon="delete-outline" title={tr('delete')} onPress={askRemove} />
+          <Btn kind="danger" small icon="trash-2" title={tr('delete')} onPress={askRemove} />
         </>
       ) : (
         <>

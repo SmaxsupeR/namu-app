@@ -47,7 +47,7 @@ export function FullDictCard({ compact = false }: { compact?: boolean }) {
         <>
           <Body>{progress?.phase === 'unpack' ? tr('fullDictUnpacking') : tr('voiceProgress', { done: mb(progress?.done ?? 0), total: mb(progress?.total ?? offer?.size ?? 0) })}</Body>
           <Bar value={progress && progress.total ? progress.done / progress.total : 0} />
-          <Btn kind="soft" small icon="close" title={tr('cancel')} onPress={cancelFullDict} />
+          <Btn kind="soft" small icon="x" title={tr('cancel')} onPress={cancelFullDict} />
         </>
       ) : (
         <Btn kind="soft" icon="download" title={offer ? tr('voiceDownloadSize', { mb: mb(offer.size) }) : tr('voiceDownload')} onPress={ask} />

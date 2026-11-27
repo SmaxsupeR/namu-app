@@ -22,7 +22,7 @@ export default function Dictionaries() {
     <Card key={d.id} onPress={() => router.push(`/dictionary/${d.id}`)}>
       <Row>
         <View style={[styles.badge, { backgroundColor: d.color }]}>
-          <Icon name={d.is_favorite ? 'star' : 'book-open-page-variant'} size={20} color="#FFFFFF" />
+          <Icon name={d.is_favorite ? 'star' : 'book-open'} size={20} color="#FFFFFF" />
         </View>
         <View style={styles.flex}>
           <Text style={[styles.name, { color: t.text }]} numberOfLines={1}>
@@ -32,7 +32,7 @@ export default function Dictionaries() {
             {tr('words', { n: d.entry_count }) + (d.due_count > 0 ? ` · ${tr('due', { n: d.due_count })}` : '') + (d.is_paused ? ` · ${tr('paused')}` : '')}
           </Body>
         </View>
-        <IconBtn name="pencil-outline" label={tr('editDictionary')} color={t.textDim} onPress={() => router.push(`/dictionary-edit?id=${d.id}`)} />
+        <IconBtn name="edit-2" label={tr('editDictionary')} color={t.textDim} onPress={() => router.push(`/dictionary-edit?id=${d.id}`)} />
       </Row>
     </Card>
   );
@@ -41,13 +41,13 @@ export default function Dictionaries() {
     <View style={styles.flex}>
       <Screen top>
         <Title>{tr('tabDictionaries')}</Title>
-        {data && data.active.length === 0 ? <Empty icon="book-plus-outline" title={tr('noDictionaries')} text={tr('noDictionariesText')} /> : null}
+        {data && data.active.length === 0 ? <Empty icon="book" title={tr('noDictionaries')} text={tr('noDictionariesText')} /> : null}
         {data?.active.map(item)}
         {data && data.archived.length > 0 ? (
           <Btn kind="ghost" small title={showArchive ? tr('hideArchive') : tr('showArchive', { n: data.archived.length })} onPress={() => setShowArchive((v) => !v)} />
         ) : null}
         {showArchive ? data?.archived.map(item) : null}
-        <Btn kind="soft" icon="dice-multiple" title={tr('sampleTitle')} onPress={() => router.push('/dict-sample')} />
+        <Btn kind="soft" icon="shuffle" title={tr('sampleTitle')} onPress={() => router.push('/dict-sample')} />
         <View style={styles.spacer} />
       </Screen>
       <Fab icon="plus" label={tr('createDictionary')} onPress={() => router.push('/dictionary-edit')} />

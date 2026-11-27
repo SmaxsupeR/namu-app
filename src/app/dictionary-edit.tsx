@@ -117,8 +117,8 @@ export default function DictionaryEdit() {
             {toggle(tr('pauseDictionary'), paused, setPaused)}
             {toggle(tr('archived'), archived, setArchived)}
           </Card>
-          <Btn kind="soft" icon="content-copy" title={tr('duplicate')} onPress={copy} />
-          <Btn kind="danger" icon="trash-can-outline" title={tr('delete')} onPress={remove} />
+          <Btn kind="soft" icon="copy" title={tr('duplicate')} onPress={copy} />
+          <Btn kind="danger" icon="trash-2" title={tr('delete')} onPress={remove} />
         </>
       ) : null}
     </Screen>

@@ -44,7 +44,7 @@ export function DictResultCard({
             <Text style={{ color: t.primary, fontSize: 12, fontWeight: '600' }}>{tr('alreadyAdded')}</Text>
           </View>
         ) : null}
-        <IconBtn name="volume-high" label={tr('listen')} color={t.primary} onPress={() => onSpeak(word.word.replace(/^-|-$/g, ''))} />
+        <IconBtn name="volume-2" label={tr('listen')} color={t.primary} onPress={() => onSpeak(word.word.replace(/^-|-$/g, ''))} />
       </Row>
       {senses.slice(0, 6).map((s) => (
         <Pressable
@@ -69,7 +69,7 @@ export function DictResultCard({
               </Text>
             ) : null}
           </View>
-          <Icon name="plus-circle-outline" color={t.primary} />
+          <Icon name="plus-circle" color={t.primary} />
         </Pressable>
       ))}
     </Card>

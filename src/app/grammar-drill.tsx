@@ -110,9 +110,9 @@ export default function GrammarDrill() {
   if (!tasks) return <Screen><Stack.Screen options={{ title }} /></Screen>;
   if (tasks.length === 0) {
     return isReview ? (
-      <Empty icon="check-all" title={tr('grammarNothingDue')} action={<Btn kind="soft" title={tr('finish')} onPress={() => router.back()} />} />
+      <Empty icon="check-circle" title={tr('grammarNothingDue')} action={<Btn kind="soft" title={tr('finish')} onPress={() => router.back()} />} />
     ) : (
-      <Empty icon="book-alert-outline" title={tr('nothingFound')} />
+      <Empty icon="alert-circle" title={tr('nothingFound')} />
     );
   }
   const task = tasks[Math.min(i, tasks.length - 1)];
@@ -150,7 +150,7 @@ export default function GrammarDrill() {
   if (done) {
     const now = Date.now();
     return (
-      <Screen footer={isReview ? <Btn icon="check" title={tr('finish')} onPress={() => router.back()} /> : <Btn icon="refresh" title={tr('grammarAgain')} onPress={again} />}>
+      <Screen footer={isReview ? <Btn icon="check" title={tr('finish')} onPress={() => router.back()} /> : <Btn icon="refresh-cw" title={tr('grammarAgain')} onPress={again} />}>
         <Stack.Screen options={{ title }} />
         <Text style={[styles.big, { color: t.text }]}>{tr('grammarScore', { n: right, total: tasks.length })}</Text>
         <Bar value={right / tasks.length} />
@@ -181,7 +181,7 @@ export default function GrammarDrill() {
             })}
           </Card>
         ) : null}
-        {!isReview ? <Btn kind="soft" icon="book-open-variant" title={tr('grammarBackToTopic')} onPress={() => router.back()} /> : null}
+        {!isReview ? <Btn kind="soft" icon="book-open" title={tr('grammarBackToTopic')} onPress={() => router.back()} /> : null}
       </Screen>
     );
   }
@@ -225,7 +225,7 @@ export default function GrammarDrill() {
               <Text style={[styles.h, { color: result ? t.primary : t.danger }]}>{result ? tr('correct') : tr('grammarWrong')}</Text>
               <Text style={[styles.answer, { color: t.text }]}>{task.answer}</Text>
             </View>
-            <IconBtn name="volume-high" label={tr('listen')} color={t.primary} onPress={() => speakKorean(task.answer)} />
+            <IconBtn name="volume-2" label={tr('listen')} color={t.primary} onPress={() => speakKorean(task.answer)} />
           </Row>
           {!result && topic.rules ? <Body dim>{topic.rules.join(' · ')}</Body> : null}
         </Card>

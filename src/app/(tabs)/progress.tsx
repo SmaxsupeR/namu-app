@@ -44,7 +44,7 @@ export default function Progress() {
   return (
     <Screen top>
       <Title>{tr('tabProgress')}</Title>
-      {o.totalAnswers === 0 ? <Empty icon="chart-line" title={tr('noStats')} /> : null}
+      {o.totalAnswers === 0 ? <Empty icon="trending-up" title={tr('noStats')} /> : null}
 
       <Card>
         <Row style={styles.between}>

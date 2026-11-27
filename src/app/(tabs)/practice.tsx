@@ -12,7 +12,7 @@ import { useLoad } from '../../ui/useLoad';
 import { InkCanvas } from '../../../modules/namu-tts/InkCanvas';
 
 const DIRECTION_OPTIONS: { value: DirectionSetting; label: StringKey; hint: StringKey; icon: IconName }[] = [
-  { value: 'both', label: 'dirBoth', hint: 'dirBothHint', icon: 'swap-horizontal' },
+  { value: 'both', label: 'dirBoth', hint: 'dirBothHint', icon: 'repeat' },
   { value: 'ko_ru', label: 'dirKoRu', hint: 'dirKoRuHint', icon: 'arrow-right' },
   { value: 'ru_ko', label: 'dirRuKo', hint: 'dirRuKoHint', icon: 'arrow-left' },
 ];
@@ -50,7 +50,7 @@ export default function Practice() {
     return (
       <Screen top>
         <Title>{tr('tabPractice')}</Title>
-        <Empty icon="cards-outline" title={tr('welcomeTitle')} text={tr('welcomeText')} action={<Btn title={tr('createDictionary')} icon="plus" onPress={() => router.push('/dictionary-edit')} />} />
+        <Empty icon="layers" title={tr('welcomeTitle')} text={tr('welcomeText')} action={<Btn title={tr('createDictionary')} icon="plus" onPress={() => router.push('/dictionary-edit')} />} />
       </Screen>
     );
   }
@@ -94,7 +94,7 @@ export default function Practice() {
       {(
         [
           { k: 'modeListening', hint: 'modeListeningHint', icon: 'headphones', to: '/free?prompt=audio' },
-          { k: 'modeHandwriting', hint: 'modeHandwritingHint', icon: 'draw', to: '/ink-lab' },
+          { k: 'modeHandwriting', hint: 'modeHandwritingHint', icon: 'pen-tool', to: '/ink-lab' },
         ] as const
       ).filter((m) => m.k !== 'modeHandwriting' || InkCanvas).map((m) => (
         <Pressable
@@ -124,12 +124,12 @@ export default function Practice() {
 
       <Text style={[styles.blockTitle, { color: t.text }]}>{tr('freeTitle')}</Text>
       <Body dim>{tr('freeHint')}</Body>
-      <Btn kind="soft" icon="tune-variant" title={tr('freeOpen')} onPress={() => router.push('/free')} />
+      <Btn kind="soft" icon="sliders" title={tr('freeOpen')} onPress={() => router.push('/free')} />
 
       <Text style={[styles.blockTitle, { color: t.text }]}>{tr('hardTitle')}</Text>
       <Body dim>{tr('hardHint')}</Body>
       <Body>{data ? (data.hard > 0 ? tr('hardCount', { n: data.hard }) : tr('hardNone')) : ''}</Body>
-      <Btn kind="soft" icon="fire" title={tr('hardStart')} disabled={!data || data.hard === 0} onPress={() => router.push('/free?source=hard')} />
+      <Btn kind="soft" icon="zap" title={tr('hardStart')} disabled={!data || data.hard === 0} onPress={() => router.push('/free?source=hard')} />
 
       <Section>{tr('howItWorks')}</Section>
       <Body dim>{tr('howItWorksText')}</Body>

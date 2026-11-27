@@ -19,11 +19,11 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         sceneStyle: { backgroundColor: t.bg },
       }}>
-      <Tabs.Screen name="index" options={{ title: tr('tabHome'), tabBarIcon: icon('home-variant') }} />
-      <Tabs.Screen name="dictionaries" options={{ title: tr('tabDictionaries'), tabBarIcon: icon('book-open-variant') }} />
-      <Tabs.Screen name="translate" options={{ title: tr('tabTranslate'), tabBarIcon: icon('translate') }} />
-      <Tabs.Screen name="practice" options={{ title: tr('tabPractice'), tabBarIcon: icon('cards') }} />
-      <Tabs.Screen name="progress" options={{ title: tr('tabProgress'), tabBarIcon: icon('chart-bar') }} />
+      <Tabs.Screen name="index" options={{ title: tr('tabHome'), tabBarIcon: icon('home') }} />
+      <Tabs.Screen name="dictionaries" options={{ title: tr('tabDictionaries'), tabBarIcon: icon('book-open') }} />
+      <Tabs.Screen name="globe" options={{ title: tr('tabTranslate'), tabBarIcon: icon('globe') }} />
+      <Tabs.Screen name="practice" options={{ title: tr('tabPractice'), tabBarIcon: icon('layers') }} />
+      <Tabs.Screen name="progress" options={{ title: tr('tabProgress'), tabBarIcon: icon('bar-chart-2') }} />
     </Tabs>
   );
 }

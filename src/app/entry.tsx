@@ -267,7 +267,7 @@ export default function EntryScreen() {
       <Stack.Screen
         options={{
           title: id ? tr('editWord') : tr('newWord'),
-          headerRight: id ? () => <IconBtn name="trash-can-outline" label={tr('delete')} color={t.danger} onPress={remove} /> : undefined,
+          headerRight: id ? () => <IconBtn name="trash-2" label={tr('delete')} color={t.danger} onPress={remove} /> : undefined,
         }}
       />
       {notice ? (
@@ -294,7 +294,7 @@ export default function EntryScreen() {
             returnKeyType="search"
             maxLength={100}
             style={styles.korean}
-            right={<IconBtn name="content-paste" label={tr('paste')} color={t.textDim} onPress={async () => setQuery((await Clipboard.getStringAsync()).trim().slice(0, 100))} />}
+            right={<IconBtn name="clipboard" label={tr('paste')} color={t.textDim} onPress={async () => setQuery((await Clipboard.getStringAsync()).trim().slice(0, 100))} />}
           />
           {query.trim() === '' ? <Body dim>{tr('lookupHint')}</Body> : null}
           {dictError ? <Body style={{ color: t.danger }}>{tr('dictUnavailable')}</Body> : null}
@@ -302,11 +302,11 @@ export default function EntryScreen() {
           {results.map((w) => (
             <DictResultCard key={w.id} word={w} have={have.has(duplicateKey(w.word))} onPick={pick} onSpeak={speakText} />
           ))}
-          <Btn kind="ghost" small icon="pencil-outline" title={query.trim() ? tr('typeManuallyWith', { q: query.trim() }) : tr('typeManually')} onPress={typeManually} />
+          <Btn kind="ghost" small icon="edit-2" title={query.trim() ? tr('typeManuallyWith', { q: query.trim() }) : tr('typeManually')} onPress={typeManually} />
           <Text style={[styles.attribution, { color: t.textDim }]}>{tr('dictAttribution', { source: DICT_ATTRIBUTION })}</Text>
         </>
       ) : null}
-      {showForm && !id ? <Btn kind="ghost" small icon="magnify" title={tr('backToSearch')} onPress={backToSearch} /> : null}
+      {showForm && !id ? <Btn kind="ghost" small icon="search" title={tr('backToSearch')} onPress={backToSearch} /> : null}
       {showForm && picked && picked.word.senses.length > 1 ? (
         <Card>
           <Text style={{ color: t.text, fontWeight: '600' }}>{tr('otherMeanings')}</Text>
@@ -335,8 +335,8 @@ export default function EntryScreen() {
             hint={auto && auto !== form.korean.trim() ? tr('romanizationAuto', { r: auto }) : undefined}
             right={
               <Row style={styles.tight}>
-                <IconBtn name="content-paste" label={tr('paste')} color={t.textDim} onPress={paste} />
-                <IconBtn name="volume-high" label={tr('listen')} color={t.primary} onPress={speak} />
+                <IconBtn name="clipboard" label={tr('paste')} color={t.textDim} onPress={paste} />
+                <IconBtn name="volume-2" label={tr('listen')} color={t.primary} onPress={speak} />
               </Row>
             }
           />

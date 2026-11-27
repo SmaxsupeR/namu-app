@@ -20,7 +20,7 @@ export default function GrammarTopicScreen() {
   const router = useRouter();
   const topic = topicById(id);
   const review = useGrammarReview();
-  if (!topic) return <Empty icon="book-alert-outline" title={tr('nothingFound')} />;
+  if (!topic) return <Empty icon="alert-circle" title={tr('nothingFound')} />;
 
   // A few words in this form, built by the conjugator, as a quick table.
   const drill = topic.drill;
@@ -33,7 +33,7 @@ export default function GrammarTopicScreen() {
       : [];
 
   return (
-    <Screen footer={drill ? <Btn icon="pencil-box-outline" title={tr('grammarPractice')} onPress={() => router.push(`/grammar-drill?id=${topic.id}`)} /> : undefined}>
+    <Screen footer={drill ? <Btn icon="edit-3" title={tr('grammarPractice')} onPress={() => router.push(`/grammar-drill?id=${topic.id}`)} /> : undefined}>
       <Stack.Screen options={{ title: topic.pattern }} />
       <Text style={[styles.pattern, { color: t.primary }]}>{topic.pattern}</Text>
       <Text style={[styles.title, { color: t.text }]}>{topic.title}</Text>
@@ -73,7 +73,7 @@ export default function GrammarTopicScreen() {
               <Text style={[styles.ko, { color: t.text }]}>{e.ko}</Text>
               <Text style={[styles.ru, { color: t.textDim }]}>{e.ru}</Text>
             </View>
-            <IconBtn name="volume-high" label={tr('listen')} color={t.primary} onPress={() => speakKorean(e.ko)} />
+            <IconBtn name="volume-2" label={tr('listen')} color={t.primary} onPress={() => speakKorean(e.ko)} />
           </Row>
         </Card>
       ))}
@@ -98,7 +98,7 @@ export default function GrammarTopicScreen() {
           </View>
         </>
       ) : null}
-      {drill?.kind === 'form' ? <Btn kind="ghost" small icon="table" title={tr('grammarTryOwn')} onPress={() => router.push('/conjugate')} /> : null}
+      {drill?.kind === 'form' ? <Btn kind="ghost" small icon="grid" title={tr('grammarTryOwn')} onPress={() => router.push('/conjugate')} /> : null}
     </Screen>
   );
 }

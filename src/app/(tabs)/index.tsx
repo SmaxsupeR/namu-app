@@ -35,7 +35,7 @@ export default function Home() {
   const header = (
     <Row style={styles.header}>
       <Title>{tr(greeting(new Date().getHours()))}</Title>
-      <IconBtn name="cog-outline" label={tr('settings')} onPress={() => router.push('/settings')} />
+      <IconBtn name="settings" label={tr('settings')} onPress={() => router.push('/settings')} />
     </Row>
   );
 
@@ -47,7 +47,7 @@ export default function Home() {
       <Screen top>
         {header}
         <Empty
-          icon="sprout"
+          icon="feather"
           title={tr('welcomeTitle')}
           text={tr('welcomeText')}
           action={<Btn title={tr('createDictionary')} icon="plus" onPress={() => router.push('/dictionary-edit')} />}
@@ -79,7 +79,7 @@ export default function Home() {
             {overview.answersToday > 0 ? (
               <Btn title={tr('consolidateToday')} icon="repeat" onPress={() => router.push(`/study?kind=free&source=today&dirs=both&method=${settings.answerMethod}&limit=50`)} style={styles.gapTop} />
             ) : null}
-            <Btn kind="ghost" small icon="tune-variant" title={tr('freeTitle')} onPress={() => router.push('/free')} />
+            <Btn kind="ghost" small icon="sliders" title={tr('freeTitle')} onPress={() => router.push('/free')} />
           </>
         )}
       </Card>
@@ -89,7 +89,7 @@ export default function Home() {
           <Text style={[styles.cardLabel, { color: t.textDim }]}>{tr('doneToday')}</Text>
           {overview.streakDays > 0 ? (
             <Row>
-              <Icon name="fire" size={18} color={t.warn} />
+              <Icon name="zap" size={18} color={t.warn} />
               <Text style={[styles.small, { color: t.warn }]}>{tr('streak', { n: overview.streakDays })}</Text>
             </Row>
           ) : null}

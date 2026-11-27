@@ -62,7 +62,7 @@ function QueueCard({ prepareAll, onPrepareAll }: { prepareAll: boolean; onPrepar
       <Body dim>{tr('queueReady', { n: ready ?? 0 })}</Body>
       {waiting > 0 ? <Body dim>{tr('queueWaiting', { n: waiting })}</Body> : null}
       {waiting > 0 && status?.paused ? <Body style={{ color: t.warn }}>{tr(PAUSE[status.paused] ?? 'queuePausedUnavailable')}</Body> : null}
-      {status && status.failed > 0 ? <Btn kind="ghost" small icon="refresh" title={tr('queueRetry', { n: status.failed })} onPress={() => synthQueue?.retryFailed()} /> : null}
+      {status && status.failed > 0 ? <Btn kind="ghost" small icon="refresh-cw" title={tr('queueRetry', { n: status.failed })} onPress={() => synthQueue?.retryFailed()} /> : null}
       <Row style={styles.between}>
         <Text style={[styles.flex, { color: t.text, fontSize: 15 }]}>{tr('queuePrepareAll')}</Text>
         <Switch value={prepareAll} onValueChange={onPrepareAll} trackColor={{ true: t.primary }} accessibilityLabel={tr('queuePrepareAll')} />
@@ -146,7 +146,7 @@ export function VoiceSettings({ settings, update }: { settings: Settings; update
             />
           ))}
         </View>
-        <Btn kind="ghost" small icon="volume-high" title={tr('voiceTestSystem')} onPress={() => speakKorean(SAMPLE)} />
+        <Btn kind="ghost" small icon="volume-2" title={tr('voiceTestSystem')} onPress={() => speakKorean(SAMPLE)} />
       </Card>
 
       <Card>
@@ -158,7 +158,7 @@ export function VoiceSettings({ settings, update }: { settings: Settings; update
             <Body>{progress ? tr('voiceProgress', { done: mb(progress.done), total: mb(progress.total) }) : tr('voicePreparing')}</Body>
             <Bar value={progress && progress.total > 0 ? progress.done / progress.total : 0} />
             {progress?.phase === 'install' ? <Body dim>{tr('voiceInstalling')}</Body> : null}
-            <Btn kind="soft" small icon="close" title={tr('cancel')} onPress={cancelVoicePack} />
+            <Btn kind="soft" small icon="x" title={tr('cancel')} onPress={cancelVoicePack} />
             <Body dim>{tr('voiceResumeHint')}</Body>
           </>
         ) : null}
@@ -174,7 +174,7 @@ export function VoiceSettings({ settings, update }: { settings: Settings; update
           <>
             <Body style={{ color: t.danger }}>{tr('voiceDamaged')}</Body>
             <Btn icon="download" title={tr('voiceRedownload')} onPress={askDownload} />
-            <Btn kind="danger" small icon="delete-outline" title={tr('voiceRemove')} onPress={askRemove} />
+            <Btn kind="danger" small icon="trash-2" title={tr('voiceRemove')} onPress={askRemove} />
           </>
         ) : null}
 
@@ -196,7 +196,7 @@ export function VoiceSettings({ settings, update }: { settings: Settings; update
             </View>
             <Row>
               <Btn kind="soft" small icon="play" title={previewing ? tr('voicePreviewing') : tr('voicePreview')} disabled={previewing} onPress={() => preview()} />
-              <Btn kind="danger" small icon="delete-outline" title={tr('voiceRemove')} disabled={busy !== null} onPress={askRemove} />
+              <Btn kind="danger" small icon="trash-2" title={tr('voiceRemove')} disabled={busy !== null} onPress={askRemove} />
             </Row>
           </>
         ) : null}

@@ -108,7 +108,7 @@ export default function DictionaryScreen() {
             <Text style={[styles.mastery, { color: masteryColor[item.mastery] }]}>{masteryLabel[item.mastery]}</Text>
           </Row>
         </View>
-        <IconBtn name="volume-high" label={tr('listen')} color={t.primary} onPress={() => speak(item.korean)} />
+        <IconBtn name="volume-2" label={tr('listen')} color={t.primary} onPress={() => speak(item.korean)} />
       </Row>
     </Card>
   );
@@ -128,7 +128,7 @@ export default function DictionaryScreen() {
       <Stack.Screen
         options={{
           title: data?.dictionary?.name ?? '',
-          headerRight: () => <IconBtn name="pencil-outline" label={tr('editDictionary')} onPress={() => router.push(`/dictionary-edit?id=${id}`)} />,
+          headerRight: () => <IconBtn name="edit-2" label={tr('editDictionary')} onPress={() => router.push(`/dictionary-edit?id=${id}`)} />,
         }}
       />
       <FlatList
@@ -152,7 +152,7 @@ export default function DictionaryScreen() {
                     ? tr('sampleWeeklyNext', { t: interval(Math.max(0, data.auto.refreshedAt + WEEK_MS - Date.now())) })
                     : tr('sampleOnce')}
                 </Body>
-                <Btn kind="soft" small icon="dice-multiple" title={tr('sampleRenew')} onPress={askRenew} />
+                <Btn kind="soft" small icon="shuffle" title={tr('sampleRenew')} onPress={askRenew} />
               </Card>
             ) : null}
             <Row>
@@ -160,8 +160,8 @@ export default function DictionaryScreen() {
               <Btn style={styles.flex} kind="soft" title={tr('add')} icon="plus" onPress={() => router.push(`/entry?dictionaryId=${id}`)} />
             </Row>
             <Row>
-              <Btn style={styles.flex} small kind="ghost" title={tr('import')} icon="tray-arrow-down" onPress={() => router.push(`/import?dictionaryId=${id}`)} />
-              <Btn style={styles.flex} small kind="ghost" title={tr('export')} icon="tray-arrow-up" disabled={entries.length === 0} onPress={askExport} />
+              <Btn style={styles.flex} small kind="ghost" title={tr('import')} icon="download" onPress={() => router.push(`/import?dictionaryId=${id}`)} />
+              <Btn style={styles.flex} small kind="ghost" title={tr('export')} icon="upload" disabled={entries.length === 0} onPress={askExport} />
             </Row>
             {!empty || search !== '' ? <Field value={search} onChangeText={setSearch} placeholder={tr('search')} autoCorrect={false} returnKeyType="search" /> : null}
             {types.length > 1 || typeFilter ? (
@@ -182,13 +182,13 @@ export default function DictionaryScreen() {
                 {(['new', 'learning', 'stable'] as Mastery[]).map((m) => (
                   <Chip key={m} label={masteryLabel[m]} active={masteryFilter === m} onPress={() => setMasteryFilter(masteryFilter === m ? undefined : m)} />
                 ))}
-                {types.length > 1 && !typeFilter ? <Chip icon="format-list-group" label={tr('groupByType')} active={grouped} onPress={() => setGrouped((g) => !g)} /> : null}
+                {types.length > 1 && !typeFilter ? <Chip icon="list" label={tr('groupByType')} active={grouped} onPress={() => setGrouped((g) => !g)} /> : null}
               </ScrollView>
             ) : null}
-            {all.length > 0 && entries.length === 0 ? <Empty icon="filter-off-outline" title={tr('nothingFound')} /> : null}
+            {all.length > 0 && entries.length === 0 ? <Empty icon="x" title={tr('nothingFound')} /> : null}
           </View>
         }
-        ListEmptyComponent={empty ? search !== '' ? <Empty icon="magnify" title={tr('nothingFound')} /> : <Empty icon="text-box-plus-outline" title={tr('noWords')} text={tr('noWordsText')} /> : undefined}
+        ListEmptyComponent={empty ? search !== '' ? <Empty icon="search" title={tr('nothingFound')} /> : <Empty icon="file-plus" title={tr('noWords')} text={tr('noWordsText')} /> : undefined}
       />
     </View>
   );

@@ -117,8 +117,8 @@ export default function ImportScreen() {
       <Stack.Screen options={{ title: tr('importTitle') }} />
       <Body dim>{tr('importHelp')}</Body>
       <Row>
-        <Btn style={styles.flex} small kind="soft" icon="content-paste" title={tr('paste')} onPress={paste} />
-        <Btn style={styles.flex} small kind="soft" icon="file-document-outline" title={tr('pickFile')} onPress={pick} />
+        <Btn style={styles.flex} small kind="soft" icon="clipboard" title={tr('paste')} onPress={paste} />
+        <Btn style={styles.flex} small kind="soft" icon="file-text" title={tr('pickFile')} onPress={pick} />
       </Row>
       <Field value={text} onChangeText={setText} placeholder={tr('importPlaceholder')} multiline autoCorrect={false} autoCapitalize="none" style={styles.area} />
       {text.trim() !== '' ? (

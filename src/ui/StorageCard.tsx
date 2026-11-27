@@ -96,12 +96,12 @@ export function StorageCard({ settings, update }: { settings: Settings; update: 
             ))}
           </View>
           <Body dim>{tr('storageLimitHint')}</Body>
-          <Btn kind="ghost" small icon="broom" title={tr('storageClear')} disabled={!cache?.count} onPress={clearCache} />
+          <Btn kind="ghost" small icon="trash" title={tr('storageClear')} disabled={!cache?.count} onPress={clearCache} />
         </>
       ) : null}
-      {state?.status === 'ready' ? <Btn kind="ghost" small icon="shield-check-outline" title={checking ? tr('verifyRunning') : tr('verifyFiles')} disabled={checking} onPress={verify} /> : null}
-      {edition === 'full' ? <Btn kind="ghost" small icon="delete-outline" title={tr('storageRemoveDict')} onPress={removeDict} /> : null}
-      <Btn kind="ghost" small icon="file-certificate-outline" title={tr('licensesTitle')} onPress={() => router.push('/licenses')} />
+      {state?.status === 'ready' ? <Btn kind="ghost" small icon="shield" title={checking ? tr('verifyRunning') : tr('verifyFiles')} disabled={checking} onPress={verify} /> : null}
+      {edition === 'full' ? <Btn kind="ghost" small icon="trash-2" title={tr('storageRemoveDict')} onPress={removeDict} /> : null}
+      <Btn kind="ghost" small icon="award" title={tr('licensesTitle')} onPress={() => router.push('/licenses')} />
     </Card>
   );
 }

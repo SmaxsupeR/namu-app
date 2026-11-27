@@ -14,7 +14,7 @@ import { prepareSpeech, speakKorean, stopSpeech } from '../services/speech';
 import { directionList, SLOW_RATE, useApp } from '../state/store';
 import { Bar, Body, Btn, Card, Empty, Icon, IconBtn, Row } from '../ui/components';
 import { useInterval, useT } from '../ui/i18n';
-import { radius, space, useTheme } from '../ui/theme';
+import { fonts, radius, space, useTheme } from '../ui/theme';
 
 /** What the learner sees after answering, before tapping "Next". */
 interface Feedback {
@@ -317,7 +317,7 @@ export default function Study() {
 
   const header = (
     <Row style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-      <IconBtn name="close" label={tr('leave')} onPress={askLeave} />
+      <IconBtn name="x" label={tr('leave')} onPress={askLeave} />
       <View style={styles.flex}>
         <Bar value={session ? progress(session) : 0} />
       </View>
@@ -337,12 +337,12 @@ export default function Study() {
         <ScrollView contentContainerStyle={styles.body}>
           {empty ? (
             session.kind === 'free' ? (
-              <Empty icon="text-box-search-outline" title={tr('freeEmpty')} />
+              <Empty icon="search" title={tr('freeEmpty')} />
             ) : (
-              <Empty icon="calendar-check" title={tr('nothingToStudy')} text={tr('nothingToStudyText')} />
+              <Empty icon="calendar" title={tr('nothingToStudy')} text={tr('nothingToStudyText')} />
             )
           ) : (
-            <Empty icon="party-popper" title={tr('sessionDone')} />
+            <Empty icon="award" title={tr('sessionDone')} />
           )}
           {!empty ? (
             <View style={styles.summary}>
@@ -377,7 +377,7 @@ export default function Study() {
           {session.kind === 'scheduled' && empty && todayWords.current > 0 ? (
             <Btn kind="soft" icon="repeat" title={tr('consolidateToday')} onPress={() => consolidate(null)} />
           ) : null}
-          {session.kind === 'scheduled' && empty ? <Btn kind="ghost" icon="tune-variant" title={tr('freeTitle')} onPress={() => router.replace('/free')} /> : null}
+          {session.kind === 'scheduled' && empty ? <Btn kind="ghost" icon="sliders" title={tr('freeTitle')} onPress={() => router.replace('/free')} /> : null}
           <Btn title={tr('finish')} onPress={close} />
         </View>
       </View>
@@ -393,7 +393,7 @@ export default function Study() {
     <View style={styles.centered}>
       <Row style={styles.wrapRow}>
         <Text style={[big ? styles.korean : styles.koreanSmall, { color: t.text }]}>{e.korean}</Text>
-        {listen ? <IconBtn name="volume-high" label={tr('listen')} color={t.primary} onPress={() => speak(e.korean)} /> : null}
+        {listen ? <IconBtn name="volume-2" label={tr('listen')} color={t.primary} onPress={() => speak(e.korean)} /> : null}
       </Row>
       {settings.showRomanization && reading ? <Text style={[styles.reading, { color: t.textDim }]}>{e.transcription ? reading : `≈ ${reading}`}</Text> : null}
     </View>
@@ -451,8 +451,8 @@ export default function Study() {
           <Icon name="headphones" size={48} color={t.primary} />
         </Pressable>
         <Row style={styles.wrapRow}>
-          <Btn kind="ghost" small icon="replay" title={tr('listenAgain')} onPress={() => speak(e.korean)} />
-          <Btn kind="ghost" small icon="speedometer-slow" title={tr('listenSlower')} onPress={() => speakKorean(e.korean, SLOW_RATE)} />
+          <Btn kind="ghost" small icon="rotate-ccw" title={tr('listenAgain')} onPress={() => speak(e.korean)} />
+          <Btn kind="ghost" small icon="clock" title={tr('listenSlower')} onPress={() => speakKorean(e.korean, SLOW_RATE)} />
         </Row>
       </View>
     );
@@ -495,7 +495,7 @@ export default function Study() {
                 android_ripple={{ color: t.surfaceAlt }}
                 style={[styles.option, { borderColor: color, backgroundColor: reveal ? (isRight(o) ? t.primarySoft : t.dangerSoft) : t.surface }]}>
                 <Text style={[side === 'ko_ru' ? styles.optionText : styles.optionKorean, { color: t.text }]}>{o}</Text>
-                {reveal ? <Icon name={isRight(o) ? 'check-circle' : 'close-circle'} color={color} /> : null}
+                {reveal ? <Icon name={isRight(o) ? 'check-circle' : 'x-circle'} color={color} /> : null}
               </Pressable>
             );
           })}
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm, minHeight: 56, paddingHorizontal: space.lg, paddingVertical: space.md, borderRadius: radius.md, borderWidth: 1.5, overflow: 'hidden' },
   optionText: { fontSize: 18, fontWeight: '500', flex: 1 },
   optionKorean: { fontSize: 24, fontWeight: '600', flex: 1 },
-  typeInput: { fontSize: 24, textAlign: 'center', borderWidth: 1, borderRadius: radius.md, paddingVertical: space.lg, paddingHorizontal: space.md },
+  typeInput: { fontSize: 24, fontFamily: fonts.regular, textAlign: 'center', borderWidth: 1, borderRadius: radius.md, paddingVertical: space.lg, paddingHorizontal: space.md },
   between: { justifyContent: 'space-between' },
   verdict: { fontSize: 20, fontWeight: '700', flexShrink: 1 },
   given: { fontSize: 16 },

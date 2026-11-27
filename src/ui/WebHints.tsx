@@ -81,7 +81,7 @@ export function WebHints({ hasWords }: { hasWords: boolean }) {
         <Card>
           <Text style={[styles.h, { color: t.text }]}>{tr('webBackupTitle')}</Text>
           <Body dim>{tr('webBackupText')}</Body>
-          <Btn kind="soft" small icon="content-save-outline" title={tr('webBackupGo')} onPress={() => router.push('/settings')} />
+          <Btn kind="soft" small icon="save" title={tr('webBackupGo')} onPress={() => router.push('/settings')} />
         </Card>
       ) : null}
     </>

@@ -44,7 +44,7 @@ export function GrammarDueCard() {
     <Card>
       <Text style={[styles.dueLabel, { color: t.textDim }]}>{tr('grammarDueTitle')}</Text>
       <Text style={[styles.dueCount, { color: t.text }]}>{tr('grammarDueCount', { n: g.due.length })}</Text>
-      <Btn small icon="school-outline" title={tr('grammarStartReview')} onPress={() => router.push('/grammar-drill?review=1')} />
+      <Btn small icon="book" title={tr('grammarStartReview')} onPress={() => router.push('/grammar-drill?review=1')} />
     </Card>
   );
 }
@@ -104,7 +104,7 @@ function TopicRow({ topic, due, onPress }: { topic: GrammarTopic; due: boolean; 
           {topic.summary}
         </Text>
       </View>
-      {topic.drill ? <Icon name={due ? 'clock-alert-outline' : 'pencil-box-outline'} color={due ? t.warn : t.primary} /> : null}
+      {topic.drill ? <Icon name={due ? 'clock' : 'edit-3'} color={due ? t.warn : t.primary} /> : null}
       {topic.level === 2 ? <Text style={[styles.badge, { color: t.textDim, borderColor: t.border }]}>{tr('levelIntermediate')}</Text> : null}
       <Icon name="chevron-right" color={t.textDim} />
     </Pressable>
@@ -127,7 +127,7 @@ export function ConjugationTable({ c, only }: { c: Conjugation; only?: FormId[] 
             <Text style={[styles.formText, { color: t.text }]}>{f.text}</Text>
             {f.note ? <Text style={[styles.formLabel, { color: t.info }]}>{tr('honorificNote', { form: f.note })}</Text> : null}
           </Pressable>
-          <IconBtn name="volume-medium" label={tr('listen')} color={t.primary} size={22} onPress={() => speakKorean(f.text)} />
+          <IconBtn name="volume-1" label={tr('listen')} color={t.primary} size={22} onPress={() => speakKorean(f.text)} />
         </Row>
       ))}
     </View>

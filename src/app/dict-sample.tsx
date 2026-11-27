@@ -59,7 +59,7 @@ export default function DictSample() {
   };
 
   return (
-    <Screen footer={<Btn icon="dice-multiple" title={busy ? tr('samplePicking') : tr('sampleCreate', { n: cfg.count })} disabled={busy || available === 0} onPress={create} />}>
+    <Screen footer={<Btn icon="shuffle" title={busy ? tr('samplePicking') : tr('sampleCreate', { n: cfg.count })} disabled={busy || available === 0} onPress={create} />}>
       <Stack.Screen options={{ title: tr('sampleTitle') }} />
       <Body dim>{tr('sampleHint')}</Body>
 

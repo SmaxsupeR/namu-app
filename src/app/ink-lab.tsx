@@ -106,7 +106,7 @@ export default function InkLab() {
             <>
               <Body>{tr('voiceProgress', { done: mb(progress?.done ?? 0), total: mb(progress?.total ?? offer?.size ?? 0) })}</Body>
               <Bar value={progress && progress.total ? progress.done / progress.total : 0} />
-              <Btn kind="soft" small icon="close" title={tr('cancel')} onPress={cancelInk} />
+              <Btn kind="soft" small icon="x" title={tr('cancel')} onPress={cancelInk} />
             </>
           ) : (
             <>
@@ -125,7 +125,7 @@ export default function InkLab() {
             {showWord ? <Text style={[styles.word, { color: t.text }]}>{target.word}</Text> : <Text style={[styles.word, { color: t.textDim }]}>?</Text>}
             <Row style={styles.chips}>
               <Chip label={tr('inkShowWord')} active={showWord} onPress={() => setShowWord((v) => !v)} />
-              <Chip label={tr('inkOtherWord')} icon="refresh" onPress={next} />
+              <Chip label={tr('inkOtherWord')} icon="refresh-cw" onPress={next} />
             </Row>
           </Card>
 
@@ -139,8 +139,8 @@ export default function InkLab() {
             <InkCanvas ref={canvas} style={styles.canvas} inkColor={t.text} onStrokesChanged={(e) => setStrokes(e.nativeEvent.count)} />
           </View>
           <Row style={styles.buttons}>
-            <Btn style={styles.flex} kind="soft" small icon="undo" title={tr('inkUndo')} disabled={strokes === 0} onPress={() => canvas.current?.undo()} />
-            <Btn style={styles.flex} kind="soft" small icon="eraser" title={tr('inkClear')} disabled={strokes === 0} onPress={() => { setResult(null); canvas.current?.clear(); }} />
+            <Btn style={styles.flex} kind="soft" small icon="corner-up-left" title={tr('inkUndo')} disabled={strokes === 0} onPress={() => canvas.current?.undo()} />
+            <Btn style={styles.flex} kind="soft" small icon="delete" title={tr('inkClear')} disabled={strokes === 0} onPress={() => { setResult(null); canvas.current?.clear(); }} />
           </Row>
           {result ? (
             <Card style={{ borderColor: accepted ? t.primary : t.danger }}>
@@ -173,13 +173,13 @@ export default function InkLab() {
             <Body>{tr('inkStatWrong', { a: stats.wrongAccepted, n: stats.wrong, p: pct(stats.wrongAccepted, stats.wrong) })}</Body>
             <Body dim>{tr('inkStatExact', { a: stats.exact, n: stats.right, ms: stats.msMedian === null ? '—' : Math.round(stats.msMedian) })}</Body>
             <Row style={styles.buttons}>
-              <Btn style={styles.flex} kind="soft" small icon="share-variant" title={tr('inkShare')} disabled={attempts.length === 0} onPress={share} />
-              <Btn style={styles.flex} kind="ghost" small icon="delete-outline" title={tr('inkClearAll')} disabled={attempts.length === 0} onPress={askClear} />
+              <Btn style={styles.flex} kind="soft" small icon="share-2" title={tr('inkShare')} disabled={attempts.length === 0} onPress={share} />
+              <Btn style={styles.flex} kind="ghost" small icon="trash-2" title={tr('inkClearAll')} disabled={attempts.length === 0} onPress={askClear} />
             </Row>
             <Body dim>{tr('inkShareHint')}</Body>
           </Card>
 
-          <Btn kind="danger" small icon="delete-outline" title={tr('inkRemoveModel')} onPress={() => removeInk()} />
+          <Btn kind="danger" small icon="trash-2" title={tr('inkRemoveModel')} onPress={() => removeInk()} />
         </>
       ) : null}
     </Screen>

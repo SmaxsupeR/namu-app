@@ -61,9 +61,9 @@ export default function SettingsScreen() {
     <Row style={styles.between}>
       <Text style={[styles.label, { color: t.text }]}>{label}</Text>
       <Row>
-        <IconBtn name="minus-circle-outline" label={`${label} −`} color={t.primary} onPress={() => update(key, Math.max(min, settings[key] - step))} />
+        <IconBtn name="minus-circle" label={`${label} −`} color={t.primary} onPress={() => update(key, Math.max(min, settings[key] - step))} />
         <Text style={[styles.value, { color: t.text }]}>{settings[key]}</Text>
-        <IconBtn name="plus-circle-outline" label={`${label} +`} color={t.primary} onPress={() => update(key, Math.min(max, settings[key] + step))} />
+        <IconBtn name="plus-circle" label={`${label} +`} color={t.primary} onPress={() => update(key, Math.min(max, settings[key] + step))} />
       </Row>
     </Row>
   );
@@ -110,7 +110,7 @@ export default function SettingsScreen() {
           <Section>{tr('inkLabEntry')}</Section>
           <Card>
             <Body dim>{tr('inkLabEntryHint')}</Body>
-            <Btn icon="draw" title={tr('inkLabOpen')} onPress={() => router.push('/ink-lab')} />
+            <Btn icon="pen-tool" title={tr('inkLabOpen')} onPress={() => router.push('/ink-lab')} />
           </Card>
         </>
       ) : null}
@@ -120,9 +120,9 @@ export default function SettingsScreen() {
 
       <Section>{tr('data')}</Section>
       <Card>
-        <Btn kind="soft" icon="content-save-outline" title={tr('backup')} onPress={backup} />
+        <Btn kind="soft" icon="save" title={tr('backup')} onPress={backup} />
         <Body dim>{tr('backupHint')}</Body>
-        <Btn kind="soft" icon="backup-restore" title={tr('restore')} onPress={restore} />
+        <Btn kind="soft" icon="rotate-ccw" title={tr('restore')} onPress={restore} />
         <Body dim>{tr('restoreHint')}</Body>
       </Card>
       <Body dim>{tr('dataNote')}</Body>

@@ -53,7 +53,7 @@ export default function Listen() {
     [],
   );
 
-  if (data && words.length === 0) return <Empty icon="emoticon-happy-outline" title={tr('hardNone')} />;
+  if (data && words.length === 0) return <Empty icon="smile" title={tr('hardNone')} />;
   const w = words[Math.min(i, Math.max(0, words.length - 1))];
   const go = (n: number) => {
     setI(Math.max(0, Math.min(words.length - 1, n)));
@@ -82,9 +82,9 @@ export default function Listen() {
             <Text style={[styles.meaning, { color: t.textDim }]}>{w.meaning ?? ''}</Text>
           </Card>
           <Row style={styles.controls}>
-            <IconBtn name="skip-previous" label={tr('listenPrev')} color={t.primary} size={32} onPress={() => go(i - 1)} />
-            <IconBtn name="replay" label={tr('listenAgain')} color={t.primary} size={32} onPress={() => speakKorean(w.korean)} />
-            <IconBtn name="skip-next" label={tr('listenNext')} color={t.primary} size={32} onPress={() => go(i + 1)} />
+            <IconBtn name="skip-back" label={tr('listenPrev')} color={t.primary} size={32} onPress={() => go(i - 1)} />
+            <IconBtn name="rotate-ccw" label={tr('listenAgain')} color={t.primary} size={32} onPress={() => speakKorean(w.korean)} />
+            <IconBtn name="skip-forward" label={tr('listenNext')} color={t.primary} size={32} onPress={() => go(i + 1)} />
           </Row>
         </>
       ) : null}

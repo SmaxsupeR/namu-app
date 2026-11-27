@@ -109,9 +109,9 @@ export default function Translate() {
         accessibilityLabel={tr('translatePlaceholder')}
         right={
           query ? (
-            <IconBtn name="close-circle" label={tr('clear')} color={t.textDim} onPress={() => setQuery('')} />
+            <IconBtn name="x-circle" label={tr('clear')} color={t.textDim} onPress={() => setQuery('')} />
           ) : (
-            <IconBtn name="content-paste" label={tr('paste')} color={t.textDim} onPress={async () => setQuery((await Clipboard.getStringAsync()).trim().slice(0, 100))} />
+            <IconBtn name="clipboard" label={tr('paste')} color={t.textDim} onPress={async () => setQuery((await Clipboard.getStringAsync()).trim().slice(0, 100))} />
           )
         }
       />
@@ -122,13 +122,13 @@ export default function Translate() {
           accessibilityState={{ expanded: showFilters }}
           accessibilityLabel={active ? summary || tr('filtersN', { n: active }) : tr('filters')}
           style={styles.filterBtn}>
-          <Icon name="filter-variant" color={active ? t.primary : t.text} />
+          <Icon name="filter" color={active ? t.primary : t.text} />
           <Text style={[styles.filterText, { color: active ? t.primary : t.text }]} numberOfLines={1}>
             {active ? summary || tr('filtersN', { n: active }) : tr('filters')}
           </Text>
           {!active ? <Icon name={showFilters ? 'chevron-up' : 'chevron-down'} color={t.textDim} /> : null}
         </Pressable>
-        {active ? <IconBtn name="close" label={tr('resetFilters')} color={t.primary} size={20} onPress={() => setFilter({})} /> : null}
+        {active ? <IconBtn name="x" label={tr('resetFilters')} color={t.primary} size={20} onPress={() => setFilter({})} /> : null}
       </View>
       {showFilters ? <FilterPanel filter={filter} onChange={setFilter} subjects={subjects} /> : null}
       {error ? <Body style={{ color: t.danger }}>{tr('dictUnavailable')}</Body> : null}
@@ -136,7 +136,7 @@ export default function Translate() {
       {mode !== 'start' && !loading && items.length === 0 ? (
         <>
           <Body dim>{active ? tr('nothingWithFilters') : tr('lookupNothing')}</Body>
-          {active ? <Btn kind="soft" small icon="filter-remove-outline" title={tr('resetFilters')} onPress={() => setFilter({})} /> : null}
+          {active ? <Btn kind="soft" small icon="x" title={tr('resetFilters')} onPress={() => setFilter({})} /> : null}
         </>
       ) : null}
       {mode === 'start' ? (
@@ -150,7 +150,7 @@ export default function Translate() {
               </Pressable>
             ))}
           </View>
-          <Btn kind="ghost" small icon="filter-variant" title={tr('browseByType')} onPress={() => setShowFilters(true)} />
+          <Btn kind="ghost" small icon="filter" title={tr('browseByType')} onPress={() => setShowFilters(true)} />
           <FullDictCard />
         </>
       ) : null}

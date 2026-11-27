@@ -124,7 +124,7 @@ export default function WordScreen() {
           </Text>
         ))}
       </View>
-      <IconBtn name="volume-medium" label={tr('listen')} color={t.textDim} size={20} onPress={() => speak(e.lines.join(' '))} />
+      <IconBtn name="volume-1" label={tr('listen')} color={t.textDim} size={20} onPress={() => speak(e.lines.join(' '))} />
     </View>
   );
 
@@ -150,12 +150,12 @@ export default function WordScreen() {
           {word.origin ? <Text style={[styles.hanja, { color: t.text }]}>{word.origin}</Text> : null}
           {meta ? <Text style={[styles.dim, { color: t.textDim }]}>{meta}</Text> : null}
         </View>
-        <IconBtn name="volume-high" label={tr('listen')} color={t.primary} size={30} onPress={() => speak(headword(word))} />
+        <IconBtn name="volume-2" label={tr('listen')} color={t.primary} size={30} onPress={() => speak(headword(word))} />
       </Row>
       {word.topic || word.subject ? (
         <View style={styles.chips}>
-          {word.topic ? <Tag icon="shape-outline" text={topicName(word.topic)} /> : null}
-          {word.subject ? <Tag icon="chat-outline" text={subjectName(word.subject)} /> : null}
+          {word.topic ? <Tag icon="layers" text={topicName(word.topic)} /> : null}
+          {word.subject ? <Tag icon="message-circle" text={subjectName(word.subject)} /> : null}
         </View>
       ) : null}
       {word.note ? <Body dim>{word.note}</Body> : null}
@@ -214,7 +214,7 @@ export default function WordScreen() {
         <Card>
           <Text style={[styles.h, { color: t.text }]}>{tr('conjugateTitle')}</Text>
           <ConjugationTable c={conj} only={KEY_FORMS} />
-          <Btn kind="ghost" small icon="table" title={tr('conjugateAll')} onPress={() => router.push(`/conjugate?word=${encodeURIComponent(conj.word)}&kind=${conj.kind}`)} />
+          <Btn kind="ghost" small icon="grid" title={tr('conjugateAll')} onPress={() => router.push(`/conjugate?word=${encodeURIComponent(conj.word)}&kind=${conj.kind}`)} />
         </Card>
       ) : null}
       {word.forms.length ? (
@@ -246,7 +246,7 @@ function headword(w: { word: string }) {
   return w.word.replace(/^-|-$/g, '');
 }
 
-function Tag({ icon, text }: { icon: 'shape-outline' | 'chat-outline'; text: string }) {
+function Tag({ icon, text }: { icon: 'layers' | 'message-circle'; text: string }) {
   const t = useTheme();
   return (
     <View style={[styles.tag, { backgroundColor: t.surfaceAlt }]}>
