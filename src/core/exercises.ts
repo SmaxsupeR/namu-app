@@ -9,8 +9,12 @@ export interface ExerciseWord {
   meanings: string[];
 }
 
-/** How a prompt is presented. Audio prompts turn an exercise into listening. */
-export type PromptMode = 'text' | 'audio';
+/**
+ * How a prompt is presented. 'audio': the Korean word is only heard and the answer is its
+ * meaning; 'dictation': heard and written down in Korean. Both make the exercise listening.
+ */
+export type PromptMode = 'text' | 'audio' | 'dictation';
+export const PROMPT_MODES: PromptMode[] = ['text', 'audio', 'dictation'];
 
 export interface ExerciseSpec {
   method: AnswerMethod;
@@ -40,7 +44,7 @@ export const EXERCISES: Record<AnswerMethod, ExerciseSpec> = {
 
 /** Skill of an attempt, taking the prompt into account: an audio prompt makes it listening. */
 export function attemptSkill(method: AnswerMethod, prompt: PromptMode = 'text'): LearningSkill {
-  return prompt === 'audio' ? 'listening' : EXERCISES[method].skill;
+  return prompt === 'text' ? EXERCISES[method].skill : 'listening';
 }
 
 export interface CheckedAnswer {
@@ -51,11 +55,8 @@ export interface CheckedAnswer {
   diff: DiffPart[] | null;
   /** The right answer to show. */
   expected: string;
-  /**
-   * A wrong translation the learner may still claim as right (a synonym the dictionary
-   * does not list). Only for Korean → meaning answers typed on the keyboard.
-   */
-  canSelfAccept: boolean;
+  /** Accepted as another form of the word (книги for книга); show the stored form. */
+  form: boolean;
 }
 
 export interface CheckOptions {
@@ -72,17 +73,17 @@ export function isRightOption(word: ExerciseWord, direction: Direction, option: 
 
 export function checkChoice(word: ExerciseWord, direction: Direction, option: string): CheckedAnswer {
   const correct = isRightOption(word, direction, option);
-  return { correct, typo: false, diff: null, expected: direction === 'ru_ko' ? word.korean : (word.meanings[0] ?? ''), canSelfAccept: false };
+  return { correct, typo: false, diff: null, expected: direction === 'ru_ko' ? word.korean : (word.meanings[0] ?? ''), form: false };
 }
 
 /** A typed answer. Korean must match exactly (after Unicode normalisation); a meaning may match any listed sense. */
 export function checkKeyboard(word: ExerciseWord, direction: Direction, given: string, opts: CheckOptions): CheckedAnswer {
   if (direction === 'ru_ko') {
     const r = checkAnswer(given, [word.korean], { ignoreSpaces: !opts.strictSpacing, ignorePunctuation: true });
-    return { correct: r.correct, typo: false, diff: given.trim() === '' ? null : r.diff, expected: word.korean, canSelfAccept: false };
+    return { correct: r.correct, typo: false, diff: given.trim() === '' ? null : r.diff, expected: word.korean, form: false };
   }
   const r = checkMeaning(given, word.meanings);
-  return { correct: r.correct, typo: r.typo, diff: null, expected: r.expected, canSelfAccept: !r.correct && given.trim() !== '' };
+  return { correct: r.correct, typo: r.typo, diff: null, expected: r.expected, form: r.form };
 }
 
 /** Handwriting is checked on the text the recogniser returns, with the same rules as typed Korean. */
@@ -97,6 +98,14 @@ export function checkSelfGrade(grade: SelfGrade): { correct: boolean } {
 export interface PoolWord {
   korean: string;
   meaning: string;
+}
+
+/**
+ * Which side of the word a listening answer gives: the meaning after 'audio', the Korean
+ * spelling after 'dictation'. Checking and options then work like that text direction.
+ */
+export function listeningAnswerSide(prompt: PromptMode): Direction {
+  return prompt === 'dictation' ? 'ru_ko' : 'ko_ru';
 }
 
 /** Four options for a multiple-choice question, or null if there are not enough other words. */

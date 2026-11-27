@@ -171,7 +171,7 @@ export type DictAudioPack = ReturnType<typeof createDictAudioPack>;
 export interface DictAudioNative {
   dictAudio(db: string, text: string, out: string): Promise<boolean>;
   dictAudioHas(db: string, text: string): Promise<boolean>;
-  playFile(file: string): Promise<number>;
+  playFile(file: string, speed?: number): Promise<number>;
   stopPlayback(): void;
 }
 
@@ -204,7 +204,7 @@ export function createDictAudioEngine(deps: {
       // A rare failed read must not send the word to the phone voice: ask again once.
       return deps.native.dictAudioHas(p.file, key).catch(() => deps.native.dictAudioHas(p.file, key));
     },
-    async play({ text, isCurrent }) {
+    async play({ text, rate, isCurrent }) {
       const p = await usable();
       if (!p) throw new Error('E_UNAVAILABLE');
       const key = deps.key(text);
@@ -212,7 +212,7 @@ export function createDictAudioEngine(deps: {
         const out = `${deps.tmpDir}/dict-${counter++ % 2}.webm`;
         if (!(await deps.native.dictAudio(p.file, key, out))) throw new Error('E_NOT_FOUND');
         if (!isCurrent()) return;
-        await deps.native.playFile(out);
+        await deps.native.playFile(out, rate);
       };
       try {
         await once();

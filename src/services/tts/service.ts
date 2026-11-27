@@ -31,7 +31,7 @@ export function createSpeechService(opts: SpeechServiceOptions): SpeechService {
   };
 
   return {
-    async speak(raw, { rate = 0.9 } = {}) {
+    async speak(raw, { rate = 1 } = {}) {
       const text = raw.trim();
       const token = ++generation;
       await stopAll();

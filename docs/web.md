@@ -1,0 +1,55 @@
+# Веб-версия (PWA) и Cloudflare Pages
+
+Namu собирается и как сайт — для iPhone и любых браузеров. Это то же приложение: словари, обучение и FSRS, словарь krdict, грамматика, аудирование голосом устройства. Данные хранятся в браузере на устройстве (SQLite в OPFS), сервер ничего не получает.
+
+## Что есть и чего нет в вебе
+
+| | Android | Веб |
+|---|---|---|
+| Словари, обучение, FSRS, свободная практика, трудные слова | да | да |
+| Встроенный словарь, грамматика, спряжение, упражнения | да | да |
+| Аудирование, диктант | да | да, голосом устройства |
+| Нейросетевой голос, озвучка словаря | да | нет (нативный модуль) |
+| Рукописный ввод | лаборатория | нет |
+| Резервная копия | меню «Поделиться» | меню «Поделиться» (iPhone) или загрузка файла |
+| Без интернета | да | после первого открытия (service worker) |
+
+## Сохранность данных
+
+Браузер может удалить данные сайта (Safari на iPhone — если сайт долго не открывали). Поэтому:
+
+- на главной — подсказка установить Namu на экран «Домой» (так данные хранятся надёжнее), приложение просит у браузера постоянное хранилище;
+- раз в две недели — напоминание сделать резервную копию.
+
+## Сборка
+
+```sh
+npm run build:web     # сжимает словарь (29 → 10 МБ) и собирает сайт в dist/
+```
+
+- Словарь в вебе отдаётся сжатым (`assets/dict/krdict.db.gz`, делается при сборке, в git не хранится) и распаковывается в браузере один раз: `src/dict/compactSource.web.ts`. Ни один файл сайта не больше 25 МБ — это ограничение Cloudflare Pages.
+- `public/` копируется в сборку как есть: шаблон страницы `index.html`, `manifest.webmanifest`, значки, `sw.js` (офлайн-кэш), `_headers` (заголовки Cloudflare).
+- База в браузере требует изоляции страницы (`SharedArrayBuffer`): заголовки `Cross-Origin-Opener-Policy: same-origin` и `Cross-Origin-Embedder-Policy: require-corp` из `public/_headers`. Без них сайт не откроет базу.
+
+## Подключение Cloudflare (один раз)
+
+Cloudflare создаёт такой проект как **Worker со статическими файлами** (Workers & Pages → Create → Import a repository). Настройки сайта — в `wrangler.jsonc`: папка `dist`, все пути приложения отдают `index.html`, заголовки — из `_headers`.
+
+1. dash.cloudflare.com → **Workers & Pages** → **Create** → **Import a repository** → `SmaxsupeR/namu-app`.
+2. **Project name:** `namu-app` (должно совпадать с `name` в `wrangler.jsonc`).
+3. **Build command:** `npm run build:web`
+4. **Deploy command:** `npx wrangler deploy`
+5. **Non-production branch deploy command:** `npx wrangler versions upload` — чтобы каждая ветка получала адрес предпросмотра.
+6. Node берётся из `.nvmrc` (22).
+
+Production-ветка — `main`: push в неё обновляет сайт `https://namu-app.<аккаунт>.workers.dev`. Сборки других веток (если включены **Builds for non-production branches**) выкладываются как версии с собственным адресом предпросмотра.
+
+## Проверка
+
+Проверка делалась в Playwright (Chromium): первая загрузка распаковывает словарь и ищет по нему, повторная его не скачивает, service worker включается, без сети приложение открывается и словарь работает, резервная копия скачивается, страница изолирована (`crossOriginIsolated`). На настоящем iPhone (Safari, экран «Домой») ещё не проверялось.
+
+## Если сборка не запускается
+
+- **«This project is disconnected from your Git account»** — Cloudflare не видит новых коммитов. На GitHub: Settings → Applications → Installed GitHub Apps → **Cloudflare Workers and Pages** → Configure → доступ к `namu-app`. В Cloudflare: Worker → Settings → Builds → Git repository → Disconnect → Connect заново, затем проверить команды сборки.
+- **«This token may have been deleted or revoked»** — Builds → API token → **Create new token** (это ключ Cloudflare, которым сборка выкладывает сайт).
+- **«Missing script: build:web»** — собиралась ветка без веб-версии; **Retry build** повторяет старую сборку той же ветки, новая запускается только следующим коммитом.

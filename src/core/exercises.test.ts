@@ -13,15 +13,17 @@ describe('answer checks (moved out of the screens)', () => {
     expect(checkChoice(tree, 'ru_ko', '나무')).toMatchObject({ correct: true, expected: '나무' });
     expect(checkChoice(tree, 'ru_ko', '나비').correct).toBe(false);
   });
-  it('keyboard: Korean strictly with a diff, meanings leniently with a typo flag and the option to self-accept', () => {
+  it('keyboard: Korean strictly with a diff, meanings leniently with typo and word-form flags', () => {
     expect(checkKeyboard(tree, 'ru_ko', '나무', strict)).toMatchObject({ correct: true, typo: false });
     const wrong = checkKeyboard(tree, 'ru_ko', '나므', strict);
-    expect(wrong).toMatchObject({ correct: false, canSelfAccept: false });
+    expect(wrong).toMatchObject({ correct: false, form: false });
     expect(wrong.diff?.length).toBeGreaterThan(0);
     expect(checkKeyboard(tree, 'ko_ru', 'древесина', strict)).toMatchObject({ correct: true, typo: false });
     expect(checkKeyboard(tree, 'ko_ru', 'дерев0', strict)).toMatchObject({ correct: true, typo: true });
-    expect(checkKeyboard(tree, 'ko_ru', 'лес', strict)).toMatchObject({ correct: false, canSelfAccept: true });
-    expect(checkKeyboard(tree, 'ko_ru', '', strict)).toMatchObject({ correct: false, canSelfAccept: false });
+    expect(checkKeyboard(tree, 'ko_ru', 'деревья', strict)).toMatchObject({ correct: true, form: true });
+    // A different word is wrong: there is no "my answer is also right" button any more.
+    expect(checkKeyboard(tree, 'ko_ru', 'лес', strict)).toMatchObject({ correct: false });
+    expect(checkKeyboard(tree, 'ko_ru', '', strict)).toMatchObject({ correct: false });
   });
   it('self-grade and handwriting', () => {
     expect(checkSelfGrade('again').correct).toBe(false);

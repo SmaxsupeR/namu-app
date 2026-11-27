@@ -12,7 +12,7 @@ export interface ImportRow {
 export interface ImportError {
   line: number;
   text: string;
-  reason: 'too_few_columns' | 'empty_field';
+  reason: 'too_few_columns' | 'empty_field' | 'no_hangul' | 'meaning_not_translation' | 'mixed_korean';
 }
 
 export interface ImportResult {
@@ -76,6 +76,22 @@ function looksLikeHeader(cells: string[]): boolean {
   return !containsHangul(cells.slice(0, 2).join('').replace(/한국어|단어|번역|뜻/g, '')) && HEADER_WORDS.some((w) => joined.includes(w));
 }
 
+/** Letters that are not Hangul: a translation must have some (Russian, English, …). */
+const NON_HANGUL_LETTER = /(?![ᄀ-ᇿ㄰-㆏가-힣])\p{L}/u;
+const CYRILLIC = /\p{Script=Cyrillic}/u;
+
+/**
+ * Checks that a row is a Korean word and its translation, not two arbitrary strings.
+ * Latin letters are allowed in the Korean part (PC방, TV), Cyrillic is not: it means the
+ * word and its translation ended up in one column.
+ */
+export function checkPair(korean: string, meanings: string[]): ImportError['reason'] | null {
+  if (!containsHangul(korean)) return 'no_hangul';
+  if (CYRILLIC.test(korean)) return 'mixed_korean';
+  if (!meanings.some((m) => NON_HANGUL_LETTER.test(m))) return 'meaning_not_translation';
+  return null;
+}
+
 export function splitMeanings(text: string): string[] {
   return text
     .split(/[;\n]/)
@@ -85,8 +101,8 @@ export function splitMeanings(text: string): string[] {
 
 /**
  * Parses a word list. Columns: korean, translation, transcription, example,
- * example translation. If the Korean text is in the second column, the first
- * two columns are swapped.
+ * example translation. The first two may come in either order, line by line:
+ * the one with Hangul is the Korean word.
  */
 export function parseWordList(text: string, delimiter: string = detectDelimiter(text)): ImportResult {
   const records = parseDelimited(text, delimiter).map((r) => r.map((c) => c.trim()));
@@ -94,9 +110,6 @@ export function parseWordList(text: string, delimiter: string = detectDelimiter(
   let start = 0;
   if (records.length > 0 && looksLikeHeader(records[0])) start = 1;
   const body = records.slice(start);
-  const firstHangul = body.filter((r) => containsHangul(r[0] ?? '')).length;
-  const secondHangul = body.filter((r) => containsHangul(r[1] ?? '') && !containsHangul(r[0] ?? '')).length;
-  const swap = secondHangul > firstHangul;
 
   body.forEach((cells, idx) => {
     const line = idx + start + 1;
@@ -105,10 +118,17 @@ export function parseWordList(text: string, delimiter: string = detectDelimiter(
       result.errors.push({ line, text: cells.join(' '), reason: 'too_few_columns' });
       return;
     }
+    // Each line may have either order: the Korean word is the side with Hangul.
+    const swap = !containsHangul(cells[0]) && containsHangul(cells[1]);
     const korean = normalizeHangul(swap ? cells[1] : cells[0]);
     const meanings = splitMeanings(swap ? cells[0] : cells[1]);
     if (korean === '' || meanings.length === 0) {
       result.errors.push({ line, text: cells.join(' | '), reason: 'empty_field' });
+      return;
+    }
+    const problem = checkPair(korean, meanings);
+    if (problem) {
+      result.errors.push({ line, text: cells.join(' | '), reason: problem });
       return;
     }
     result.rows.push({

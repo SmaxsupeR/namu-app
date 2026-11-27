@@ -21,7 +21,8 @@ export const systemEngine: TtsEngine = {
   id: 'system',
   isReady: hasKoreanVoice,
   async play({ text, rate }) {
-    Speech.speak(text, { language: 'ko-KR', rate });
+    // Phone voices speak a little fast for learners: 0.9 of their own speed is "normal" here.
+    Speech.speak(text, { language: 'ko-KR', rate: 0.9 * rate });
   },
   async stop() {
     await Speech.stop();

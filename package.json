@@ -41,7 +41,8 @@
     "android": "expo run:android",
     "lint": "expo lint",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:web": "node scripts/gzip-dict.mjs && expo export -p web --output-dir dist"
   },
   "private": true
 }

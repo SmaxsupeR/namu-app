@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
 import { getDb } from '../db';
 import { exportBackup, parseBackup, restoreBackup, savePreference } from '../db/repo';
@@ -7,9 +8,12 @@ import { Body, Btn, Card, Chip, IconBtn, Row, Screen, Section } from '../ui/comp
 import { useT } from '../ui/i18n';
 import { space, useTheme } from '../ui/theme';
 import { VoiceSettings } from '../ui/VoiceSettings';
+import { rememberBackup } from '../ui/WebHints';
+import { InkCanvas } from '../../modules/namu-tts/InkCanvas';
 
 export default function SettingsScreen() {
   const t = useTheme();
+  const router = useRouter();
   const tr = useT();
   const settings = useApp((s) => s.settings);
   const patchSettings = useApp((s) => s.patchSettings);
@@ -26,6 +30,7 @@ export default function SettingsScreen() {
     try {
       const data = await exportBackup(await getDb());
       await shareTextFile(`namu-backup-${stamp()}.json`, JSON.stringify(data), 'application/json');
+      rememberBackup();
     } catch (e) {
       Alert.alert(tr('error'), e instanceof Error ? e.message : String(e));
     }
@@ -98,6 +103,16 @@ export default function SettingsScreen() {
         {toggle(tr('autoSpeak'), 'autoSpeak')}
         {toggle(tr('detailedGrading'), 'detailedGrading', tr('detailedGradingHint'))}
       </Card>
+
+      {InkCanvas ? (
+        <>
+          <Section>{tr('inkLabEntry')}</Section>
+          <Card>
+            <Body dim>{tr('inkLabEntryHint')}</Body>
+            <Btn icon="draw" title={tr('inkLabOpen')} onPress={() => router.push('/ink-lab')} />
+          </Card>
+        </>
+      ) : null}
 
       <Section>{tr('voiceTitle')}</Section>
       <VoiceSettings settings={settings} update={update} />

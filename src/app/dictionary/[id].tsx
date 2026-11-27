@@ -8,14 +8,16 @@ import type { Mastery } from '../../core/scheduler';
 import { countByType, filterWords, groupByType, typeOfDictWord, typeOfPos, type TypeKey, type WordType } from '../../core/wordTypes';
 import { getDb } from '../../db';
 import { exportRows, getDictionary, listEntries, type Entry } from '../../db/repo';
+import { getAutoDictionary, refreshAutoDictionary } from '../../db/autoDict';
+import { WEEK_MS } from '../../dict/sample';
 import { getDictionary as openKrdict } from '../../dict';
 import { posOfWords } from '../../dict/lookup';
 import { shareTextFile } from '../../services/files';
 import { speakKorean } from '../../services/speech';
 import { useApp } from '../../state/store';
-import { Btn, Card, Chip, Empty, Field, IconBtn, Row } from '../../ui/components';
+import { Body, Btn, Card, Chip, Empty, Field, IconBtn, Row } from '../../ui/components';
 import { TYPE_LABEL } from '../../ui/dictUi';
-import { useT } from '../../ui/i18n';
+import { useInterval, useT } from '../../ui/i18n';
 import { space, useTheme } from '../../ui/theme';
 import { useLoad } from '../../ui/useLoad';
 
@@ -27,7 +29,26 @@ export default function DictionaryScreen() {
   const insets = useSafeAreaInsets();
   const showRomanization = useApp((s) => s.settings.showRomanization);
   const [search, setSearch] = useState('');
-  const { data } = useLoad(async (db) => ({ dictionary: await getDictionary(db, id), entries: await listEntries(db, { dictionaryId: id, search }) }), [id, search]);
+  const { data, reload } = useLoad(async (db) => ({ dictionary: await getDictionary(db, id), entries: await listEntries(db, { dictionaryId: id, search }), auto: await getAutoDictionary(db, id) }), [id, search]);
+  const interval = useInterval();
+  const touch = useApp((s) => s.touch);
+  const askRenew = () =>
+    Alert.alert(tr('sampleRenewTitle'), tr('sampleRenewText'), [
+      { text: tr('cancel'), style: 'cancel' },
+      {
+        text: tr('sampleRenew'),
+        onPress: async () => {
+          try {
+            const r = await refreshAutoDictionary(await getDb(), await openKrdict(), id);
+            touch();
+            reload();
+            if (r) Alert.alert(tr('sampleRenewTitle'), tr('sampleRenewed', { a: r.added, r: r.removed }));
+          } catch (e) {
+            Alert.alert(tr('error'), e instanceof Error ? e.message : String(e));
+          }
+        },
+      },
+    ]);
   const [typeFilter, setTypeFilter] = useState<TypeKey | undefined>();
   const [masteryFilter, setMasteryFilter] = useState<Mastery | undefined>();
   const [grouped, setGrouped] = useState(true);
@@ -123,6 +144,16 @@ export default function DictionaryScreen() {
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + space.xl }]}
         ListHeaderComponent={
           <View style={styles.header}>
+            {data?.auto ? (
+              <Card>
+                <Body dim>
+                  {data.auto.config.weekly
+                    ? tr('sampleWeeklyNext', { t: interval(Math.max(0, data.auto.refreshedAt + WEEK_MS - Date.now())) })
+                    : tr('sampleOnce')}
+                </Body>
+                <Btn kind="soft" small icon="dice-multiple" title={tr('sampleRenew')} onPress={askRenew} />
+              </Card>
+            ) : null}
             <Row>
               <Btn style={styles.flex} title={tr('study')} icon="play" disabled={!data || (all.length === 0 && search === '')} onPress={() => router.push(`/study?mode=cards&dicts=${id}`)} />
               <Btn style={styles.flex} kind="soft" title={tr('add')} icon="plus" onPress={() => router.push(`/entry?dictionaryId=${id}`)} />

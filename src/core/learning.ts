@@ -32,7 +32,8 @@
 // history, and never changes training stages or the FSRS schedule unless the learner
 // explicitly asks to count a due review.
 
-import { skillOf, type AttemptResult, type Outcome } from './attempt';
+import { type AttemptResult, type Outcome } from './attempt';
+import { attemptSkill, type PromptMode } from './exercises';
 import { newId } from './id';
 import { cardKey, DIRECTIONS, GRADE, type AnswerMethod, type AppGrade, type Direction, type Phase, type SessionKind } from './model';
 import { decideRating, type Decision } from './rating';
@@ -99,6 +100,8 @@ export interface FreeInput {
   method: 'choice' | RecallMethod;
   /** Count a due review in FSRS. Off by default: free practice does not touch the schedule. */
   countAsReview?: boolean;
+  /** How the word is presented; audio or dictation makes it listening practice (never rated in FSRS). */
+  prompt?: PromptMode;
   /** Attempts per card before it leaves the session. */
   maxFails?: number;
   hasChoice?: (entryId: string, direction: Direction) => boolean;
@@ -152,6 +155,8 @@ export interface Session {
   /** Recall answer method in planned sessions. */
   method: RecallMethod;
   countAsReview: boolean;
+  /** How words are presented (free practice only; planned study is always text). */
+  prompt: PromptMode;
   maxFails: number;
   sessionId: string | null;
   stats: {
@@ -265,6 +270,7 @@ export function createSession(input: SessionInput): Session {
     directions,
     method: input.method ?? 'keyboard',
     countAsReview: false,
+    prompt: 'text',
     maxFails: MAX_FAILS,
     sessionId: input.sessionId ?? null,
     stats: emptyStats(),
@@ -315,7 +321,9 @@ export function createFreeSession(input: FreeInput): Session {
     queue,
     directions: DIRECTIONS.filter((d) => input.cards.some((c) => c.direction === d)),
     method: input.method === 'choice' ? 'keyboard' : input.method,
-    countAsReview: input.countAsReview ?? false,
+    // Listening is practice only: it never counts as a scheduled review.
+    countAsReview: (input.prompt ?? 'text') === 'text' && (input.countAsReview ?? false),
+    prompt: input.prompt ?? 'text',
     maxFails: Math.max(1, Math.round(input.maxFails ?? MAX_FAILS)),
     sessionId: input.sessionId ?? null,
     stats: emptyStats(),
@@ -367,7 +375,7 @@ function buildResult(s: Session, task: Exclude<Task, { kind: 'intro' }>, card: C
     entryId: card.entryId,
     cardKey: card.key,
     direction: card.direction,
-    skill: o.skill ?? skillOf(method),
+    skill: o.skill ?? attemptSkill(method, s.prompt ?? 'text'),
     method,
     correct: o.correct,
     selfGrade: method === 'self_grade' ? (o.selfGrade ?? (o.correct ? 'good' : 'again')) : null,

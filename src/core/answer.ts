@@ -148,24 +148,65 @@ export function editDistance(a: string, b: string): number {
 
 export interface MeaningResult {
   correct: boolean;
-  /** Accepted with one typo; the right spelling should be shown. */
+  /** Accepted with a typo; the right spelling should be shown. */
   typo: boolean;
+  /** Accepted as another form of the word (книги for книга); the stored form should be shown. */
+  form: boolean;
   /** The stored meaning that matched, or the first one on a mistake. */
   expected: string;
 }
 
 /** Words of this length or longer may contain one typo and still count. */
 export const TYPO_MIN_LENGTH = 5;
+/** From this length, two typos. */
+export const TWO_TYPOS_MIN_LENGTH = 9;
 
-/** Checks a typed translation against every stored meaning. */
+/** Typos allowed in an answer of this many letters: none in short words (дом ≠ дон). */
+export function typosAllowed(length: number): number {
+  return length >= TWO_TYPOS_MIN_LENGTH ? 2 : length >= TYPO_MIN_LENGTH ? 1 : 0;
+}
+
+// Russian endings, longest first: the rest of the word is its stem.
+const ENDINGS = [
+  'ться', 'тись', 'ого', 'его', 'ому', 'ему', 'ыми', 'ими', 'ость', 'ями', 'ами', 'ях', 'ах', 'ов', 'ев', 'ей', 'ий', 'ый', 'ой', 'ая', 'яя', 'ое', 'ее', 'ые', 'ие',
+  'ую', 'юю', 'ым', 'им', 'ом', 'ем', 'ам', 'ям', 'ть', 'ти', 'ся', 'сь', 'а', 'я', 'ы', 'и', 'у', 'ю', 'е', 'о', 'ь', 'й',
+];
+
+/** Rough Russian stem: the word without its ending (only for Cyrillic words of 4+ letters). */
+export function ruStem(word: string): string {
+  if (!/^[а-я]{4,}$/.test(word)) return word;
+  for (const e of ENDINGS) if (word.endsWith(e) && word.length - e.length >= 3) return word.slice(0, -e.length).replace(/(?<=...)[ьй]$/, '');
+  return word;
+}
+
+/** Same words in another form: красивая = красивый, книги = книга, школы = школа. */
+function sameStems(a: string, b: string): boolean {
+  const x = a.split(' ');
+  const y = b.split(' ');
+  if (x.length !== y.length) return false;
+  return x.every((w, k) => w === y[k] || (ruStem(w).length >= 3 && ruStem(w) === ruStem(y[k])));
+}
+
+/**
+ * Checks a typed translation against every stored meaning: exact (any variant of any
+ * meaning), then the same word in another form, then a few typos for longer words.
+ */
 export function checkMeaning(given: string, meanings: string[]): MeaningResult {
   const g = plain(given);
   const list = meanings.filter((m) => m.trim() !== '');
-  const fallback = { correct: false, typo: false, expected: list[0] ?? '' };
+  const fallback = { correct: false, typo: false, form: false, expected: list[0] ?? '' };
   if (g === '') return fallback;
-  for (const m of list) if (meaningVariants(m).includes(g)) return { correct: true, typo: false, expected: m };
-  if (Array.from(g).length >= TYPO_MIN_LENGTH) {
-    for (const m of list) if (meaningVariants(m).some((v) => editDistance(v, g) === 1)) return { correct: true, typo: true, expected: m };
+  for (const m of list) if (meaningVariants(m).includes(g)) return { correct: true, typo: false, form: false, expected: m };
+  for (const m of list) {
+    const v = meaningVariants(m).find((x) => sameStems(x, g));
+    if (v) return { correct: true, typo: false, form: true, expected: v };
+  }
+  const allowed = typosAllowed(Array.from(g).length);
+  if (allowed > 0) {
+    for (const m of list) {
+      const v = meaningVariants(m).find((x) => editDistance(x, g) <= allowed);
+      if (v) return { correct: true, typo: true, form: false, expected: v };
+    }
   }
   return fallback;
 }

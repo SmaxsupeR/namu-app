@@ -10,6 +10,7 @@ import { headwordSpeech } from '../dict/speech';
 import { createAudioCache, speechText, type AudioCache } from './tts/audioCache';
 import { createDictAudioEngine, createDictAudioPack, type DictAudioInstalled, type DictAudioPack } from './tts/dictAudio';
 import { VOICES_INDEX_URL } from './tts/pack';
+import { createInkPack, type InkPack } from './ink';
 import type { Priority } from './tts/queuePolicy';
 import { createSynthQueue, type SynthQueue } from './tts/synthQueue';
 import { useApp } from '../state/store';
@@ -60,6 +61,10 @@ async function fetchJson(url: string): Promise<unknown> {
 }
 
 const storage = NamuTts ? NamuTts.storageDir() : '';
+
+/** Handwriting model pack (downloaded on request); null where native code is missing. */
+export const inkRoot = `${storage}/ink`;
+export const inkPack: InkPack | null = NamuTts ? createInkPack(nativeIO(), inkRoot, fetchJson, VOICES_INDEX_URL) : null;
 
 /** Voice pack management; null where the neural voice is not supported. */
 export const voicePacks = NamuTts ? createPackManager(nativeIO(), `${storage}/voices`, fetchJson) : null;
@@ -240,9 +245,11 @@ function spoken(text: string): string {
   return /[.?!,]/.test(text) ? text : (headwordSpeech(text) ?? text);
 }
 
-/** Speaks Korean text with the best available voice. */
-export function speak(text: string, rate = 0.9): Promise<SpeakOutcome> {
-  return service.speak(spoken(text), { rate });
+const userRate = () => useApp.getState().settings.speechRate;
+
+/** Speaks Korean text with the best available voice, at the user's speed unless one is given (1 = normal). */
+export function speak(text: string, rate?: number): Promise<SpeakOutcome> {
+  return service.speak(spoken(text), { rate: rate ?? userRate() });
 }
 
 /**
@@ -250,8 +257,8 @@ export function speak(text: string, rate = 0.9): Promise<SpeakOutcome> {
  * caller can tell the user. A call overtaken by a newer one counts as success:
  * the newer call is the one the user hears.
  */
-export async function speakKorean(text: string, rate = 0.9): Promise<boolean> {
-  const r = await service.speak(spoken(text), { rate });
+export async function speakKorean(text: string, rate?: number): Promise<boolean> {
+  const r = await service.speak(spoken(text), { rate: rate ?? userRate() });
   return r.ok || r.reason === 'superseded' || r.reason === 'empty';
 }
 
