@@ -11,7 +11,8 @@ import { getDictionary } from '../dict';
 import { DICT_ATTRIBUTION, POS_RU, queryKind, search, translationOf, type DictSense, type DictWord } from '../dict/lookup';
 import { prepareSpeech, speakKorean } from '../services/speech';
 import { useApp } from '../state/store';
-import { Body, Btn, Card, Chip, Field, IconBtn, Row, Screen, type InputRef } from '../ui/components';
+import { Body, Btn, Chip, Field, Icon, IconBtn, Row, Screen, Section, type InputRef } from '../ui/components';
+import { useConfirm } from '../ui/sheets';
 import { DictResultCard } from '../ui/DictResults';
 import { useT } from '../ui/i18n';
 import { useTheme } from '../ui/theme';
@@ -41,6 +42,7 @@ export default function EntryScreen() {
   const [duplicate, setDuplicate] = useState(false);
   const [notice, setNotice] = useState('');
   const [loaded, setLoaded] = useState(!id);
+  const { dialog, confirm } = useConfirm();
   const original = useRef('');
   const koreanRef = useRef<InputRef>(null);
   const translationRef = useRef<InputRef>(null);
@@ -219,30 +221,23 @@ export default function EntryScreen() {
     }
   };
 
-  const remove = () => {
+  const remove = async () => {
     if (!id) return;
-    Alert.alert(tr('deleteWordTitle'), tr('deleteWordText', { word: form.korean }), [
-      { text: tr('cancel'), style: 'cancel' },
-      {
-        text: tr('delete'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteEntry(await getDb(), id);
-            touch();
-            router.back();
-          } catch (e) {
-            fail(e);
-          }
-        },
-      },
-    ]);
+    const ok = await confirm({ title: tr('deleteWordTitle'), message: tr('deleteWordText', { word: form.korean }), confirmLabel: tr('delete'), cancelLabel: tr('cancel'), destructive: true });
+    if (!ok) return;
+    try {
+      await deleteEntry(await getDb(), id);
+      touch();
+      router.back();
+    } catch (e) {
+      fail(e);
+    }
   };
 
   // The clipboard is read only when the user taps the button.
   const paste = async () => {
     const text = (await Clipboard.getStringAsync()).trim();
-    if (text === '') Alert.alert(tr('paste'), tr('clipboardEmpty'));
+    if (text === '') setNotice(tr('clipboardEmpty'));
     else set({ korean: text.slice(0, 200) });
   };
 
@@ -259,7 +254,7 @@ export default function EntryScreen() {
         showForm ? (
           <>
             {!id ? <Btn title={tr('saveAndNext')} icon="plus" disabled={!valid} onPress={() => save(true)} /> : null}
-            <Btn kind={id ? 'primary' : 'soft'} title={tr('save')} disabled={!valid} onPress={() => save(false)} />
+            <Btn kind={id ? 'primary' : 'ghost'} title={tr('save')} disabled={!valid} onPress={() => save(false)} />
           </>
         ) : undefined
       }
@@ -271,11 +266,12 @@ export default function EntryScreen() {
         }}
       />
       {notice ? (
-        <Card style={{ backgroundColor: t.primarySoft, borderColor: t.primarySoft }}>
-          <Text style={{ color: t.primary, fontWeight: '600' }} accessibilityLiveRegion="polite">
+        <Row>
+          <Icon name="check-circle" size={18} color={t.primary} />
+          <Text style={[styles.notice, { color: t.primary }]} accessibilityLiveRegion="polite">
             {notice}
           </Text>
-        </Card>
+        </Row>
       ) : null}
       {!showForm ? (
         <>
@@ -308,14 +304,14 @@ export default function EntryScreen() {
       ) : null}
       {showForm && !id ? <Btn kind="ghost" small icon="search" title={tr('backToSearch')} onPress={backToSearch} /> : null}
       {showForm && picked && picked.word.senses.length > 1 ? (
-        <Card>
-          <Text style={{ color: t.text, fontWeight: '600' }}>{tr('otherMeanings')}</Text>
+        <>
+          <Section>{tr('otherMeanings')}</Section>
           <View style={styles.chips}>
             {picked.word.senses.map((s) => (
               <Chip key={s.id} label={`${s.n}. ${s.ru.split(';')[0]}`} active={picked.senses.includes(s.id)} onPress={() => toggleSense(s)} />
             ))}
           </View>
-        </Card>
+        </>
       ) : null}
       {showForm ? (
         <>
@@ -371,6 +367,7 @@ export default function EntryScreen() {
           ) : null}
         </>
       ) : null}
+      {dialog}
     </Screen>
   );
 }
@@ -380,4 +377,5 @@ const styles = StyleSheet.create({
   tight: { gap: 0 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   attribution: { fontSize: 11, marginTop: 8 },
+  notice: { fontSize: 15, fontWeight: '600', flex: 1 },
 });

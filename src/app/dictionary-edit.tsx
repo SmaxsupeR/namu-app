@@ -1,12 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../ui/Text';
 import { getDb } from '../db';
 import { createDictionary, deleteDictionary, DICTIONARY_COLORS, duplicateDictionary, getDictionary, updateDictionary } from '../db/repo';
 import { useApp } from '../state/store';
-import { Btn, Card, Field, Icon, Row, Screen } from '../ui/components';
+import { Btn, Field, Icon, Screen, Section } from '../ui/components';
+import { ListGroup, ListRow, SettingsRow } from '../ui/rows';
+import { useConfirm } from '../ui/sheets';
 import { useT } from '../ui/i18n';
 import { space, useTheme } from '../ui/theme';
 
@@ -23,6 +25,7 @@ export default function DictionaryEdit() {
   const [paused, setPaused] = useState(false);
   const [archived, setArchived] = useState(false);
   const [loaded, setLoaded] = useState(!id);
+  const { dialog, confirm } = useConfirm();
 
   useEffect(() => {
     if (!id) return;
@@ -70,32 +73,18 @@ export default function DictionaryEdit() {
     }
   };
 
-  const remove = () => {
+  const remove = async () => {
     if (!id) return;
-    Alert.alert(tr('deleteDictionaryTitle'), tr('deleteDictionaryText', { name }), [
-      { text: tr('cancel'), style: 'cancel' },
-      {
-        text: tr('delete'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteDictionary(await getDb(), id);
-            touch();
-            router.dismissTo('/dictionaries');
-          } catch (e) {
-            fail(e);
-          }
-        },
-      },
-    ]);
+    const ok = await confirm({ title: tr('deleteDictionaryTitle'), message: tr('deleteDictionaryText', { name }), confirmLabel: tr('delete'), cancelLabel: tr('cancel'), destructive: true });
+    if (!ok) return;
+    try {
+      await deleteDictionary(await getDb(), id);
+      touch();
+      router.dismissTo('/dictionaries');
+    } catch (e) {
+      fail(e);
+    }
   };
-
-  const toggle = (label: string, value: boolean, set: (v: boolean) => void) => (
-    <Row style={styles.between}>
-      <Text style={[styles.toggleLabel, { color: t.text }]}>{label}</Text>
-      <Switch value={value} onValueChange={set} trackColor={{ true: t.primary }} accessibilityLabel={label} />
-    </Row>
-  );
 
   return (
     <Screen footer={<Btn title={id ? tr('save') : tr('create')} disabled={!loaded || name.trim() === ''} onPress={save} />}>
@@ -112,22 +101,24 @@ export default function DictionaryEdit() {
       </View>
       {id ? (
         <>
-          <Card>
-            {toggle(tr('favorite'), favorite, setFavorite)}
-            {toggle(tr('pauseDictionary'), paused, setPaused)}
-            {toggle(tr('archived'), archived, setArchived)}
-          </Card>
-          <Btn kind="soft" icon="copy" title={tr('duplicate')} onPress={copy} />
-          <Btn kind="danger" icon="trash-2" title={tr('delete')} onPress={remove} />
+          <Section>{tr('manageDictionary')}</Section>
+          <ListGroup>
+            <SettingsRow label={tr('favorite')} toggle={favorite} onToggle={setFavorite} />
+            <SettingsRow label={tr('pauseDictionary')} hint={tr('pauseHint')} toggle={paused} onToggle={setPaused} />
+            <SettingsRow label={tr('archived')} hint={tr('archiveHint')} toggle={archived} onToggle={setArchived} />
+          </ListGroup>
+          <ListGroup>
+            <ListRow icon="copy" title={tr('duplicate')} chevron={false} onPress={copy} />
+            <ListRow icon="trash-2" iconColor={t.danger} title={tr('deleteDictionaryAction')} chevron={false} onPress={remove} />
+          </ListGroup>
         </>
       ) : null}
+      {dialog}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  between: { justifyContent: 'space-between', minHeight: 44 },
-  toggleLabel: { fontSize: 16, flex: 1 },
   label: { fontSize: 13, fontWeight: '600' },
   colors: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
   swatch: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
