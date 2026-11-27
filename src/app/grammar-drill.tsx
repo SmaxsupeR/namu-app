@@ -17,7 +17,7 @@ import { Body, Btn, EmptyState, Field, Icon, IconBtn, LoadingState, Row, type In
 import { ListGroup, ListRow } from '../ui/rows';
 import { StudyShell } from '../ui/StudyShell';
 import { useInterval, useT } from '../ui/i18n';
-import { koreanHero, radius, space, type as typeScale, useTheme } from '../ui/theme';
+import { fonts, koreanHero, radius, space, type as typeScale, useTheme } from '../ui/theme';
 
 type Task = DrillTask & { topic: GrammarTopic };
 
@@ -242,7 +242,7 @@ export default function GrammarDrill() {
         placeholder={tr('grammarAnswer')}
         onSubmitEditing={result === null ? check : next}
         submitBehavior="submit"
-        style={styles.input}
+        style={[styles.input, given ? null : styles.inputEmpty]}
         accessibilityLabel={tr('grammarAnswer')}
       />
       {result !== null ? (
@@ -269,6 +269,8 @@ const styles = StyleSheet.create({
   centered: { alignItems: 'center', gap: space.xs },
   center: { textAlign: 'center' },
   input: { ...typeScale.koreanOption, fontSize: 28, lineHeight: 38, textAlign: 'center' },
+  // The hint in the empty field fits a small screen; the typed answer is 28 sp.
+  inputEmpty: { fontSize: 18, fontFamily: fonts.regular },
   h: { fontSize: 16, fontWeight: '700' },
   outcome: { borderRadius: radius.lg, padding: space.lg, gap: space.sm },
 });

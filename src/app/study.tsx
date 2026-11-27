@@ -16,7 +16,7 @@ import { ListGroup, ListRow } from '../ui/rows';
 import { useConfirm } from '../ui/sheets';
 import { StudyShell } from '../ui/StudyShell';
 import { useInterval, useT } from '../ui/i18n';
-import { fonts, koreanHero, radius, size, space, type as typeScale, useTheme } from '../ui/theme';
+import { fonts, keepWords, koreanHero, radius, size, space, type as typeScale, useTheme } from '../ui/theme';
 
 /** What the learner sees after answering, before tapping "Next". */
 interface Feedback {
@@ -408,7 +408,7 @@ export default function Study() {
   const divider = <View style={[styles.divider, { backgroundColor: t.divider }]} />;
   const example = e.example ? (
     <View style={styles.centered}>
-      <Text style={[typeScale.koreanSentence, styles.center]}>{e.example}</Text>
+      <Text style={[typeScale.koreanSentence, keepWords, styles.center]}>{e.example}</Text>
       {e.exampleTranslation ? <Text style={[typeScale.body, styles.center, { color: t.textDim }]}>{e.exampleTranslation}</Text> : null}
     </View>
   ) : null;
@@ -572,7 +572,7 @@ export default function Study() {
               autoCapitalize="none"
               returnKeyType="done"
               submitBehavior="submit"
-              style={[styles.typeInput, side === 'ru_ko' ? styles.typeKorean : null, { color: t.text, backgroundColor: t.surface, borderColor: t.border }]}
+              style={[styles.typeInput, side === 'ru_ko' ? styles.typeKorean : null, side === 'ru_ko' && !typed ? styles.typePlaceholder : null, { color: t.text, backgroundColor: t.surface, borderColor: t.border }]}
             />
           ) : (
             <Outcome feedback={feedback} interval={interval} />
@@ -702,6 +702,8 @@ const styles = StyleSheet.create({
   option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm, minHeight: 56, paddingHorizontal: space.lg, paddingVertical: space.md, borderRadius: radius.md, borderWidth: 1.5, overflow: 'hidden' },
   optionText: { fontSize: 18, lineHeight: 24, fontWeight: '500' },
   typeKorean: { ...typeScale.koreanOption, fontSize: 28, lineHeight: 38 },
+  // The (Russian) hint in an empty Korean field fits a small screen; typed Hangul is 28 sp.
+  typePlaceholder: { fontSize: 18, fontFamily: fonts.regular },
   typeInput: { fontSize: 22, fontFamily: fonts.regular, textAlign: 'center', borderWidth: 1, borderRadius: radius.md, paddingVertical: space.lg, paddingHorizontal: space.md },
   between: { justifyContent: 'space-between' },
   verdict: { fontSize: 20, fontWeight: '700', flexShrink: 1 },

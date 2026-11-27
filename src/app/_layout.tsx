@@ -3,10 +3,11 @@ import { Stack } from 'expo-router/stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { useColorScheme, View } from 'react-native';
+import { Platform, useColorScheme, View } from 'react-native';
 import { Text } from '../ui/Text';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { getDb } from '../db';
+import { shouldReloadForBusy } from '../db/busy';
 import { ensureFsrsConfig, loadPreferences } from '../db/repo';
 import { initSpeech } from '../services/speech';
 import { settingsFromPrefs, useApp } from '../state/store';
@@ -44,6 +45,7 @@ export default function RootLayout() {
       .then((prefs) => {
         setSettings(settingsFromPrefs(prefs));
         setState('ready');
+        busyReloads(0);
         initSpeech();
         // Weekly word sets get new words once a week (only words never studied are replaced).
         Promise.all([getDb(), getDictionary()])
@@ -51,7 +53,10 @@ export default function RootLayout() {
           .then((n) => n > 0 && useApp.getState().touch())
           .catch(() => {});
       })
-      .catch((e: unknown) => setState(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) => {
+        if (reloadIfStorageBusy(e)) return;
+        setState(e instanceof Error ? e.message : String(e));
+      })
       .finally(() => SplashScreen.hideAsync().catch(() => {}));
   }, [setSettings]);
 
@@ -90,4 +95,26 @@ export default function RootLayout() {
       </Stack>
     </SafeAreaProvider>
   );
+}
+
+// Web only: after a quick reload the database file may still be held by the previous page.
+// Opening then fails for this page; a fresh page a moment later opens it (src/db/busy.ts).
+function busyReloads(set?: number): number {
+  try {
+    const store = (globalThis as { sessionStorage?: Storage }).sessionStorage;
+    if (!store) return 0;
+    if (set !== undefined) store.setItem('namu.busyReloads', String(set));
+    return Number(store.getItem('namu.busyReloads') ?? 0) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function reloadIfStorageBusy(e: unknown): boolean {
+  if (Platform.OS !== 'web') return false;
+  const n = busyReloads();
+  if (!shouldReloadForBusy(e, n)) return false;
+  busyReloads(n + 1);
+  setTimeout(() => (globalThis as { location?: Location }).location?.reload(), 800);
+  return true;
 }

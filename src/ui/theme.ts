@@ -130,9 +130,15 @@ export const type = {
   instruction: { fontSize: 19, lineHeight: 26, fontFamily: fonts.semibold },
 } as const;
 
+/**
+ * Korean phrases and sentences wrap between words, not inside one (in a browser Hangul may
+ * otherwise break between any two syllables). Not for a single word: it would not wrap at all.
+ */
+export const keepWords = (Platform.OS === 'web' ? { wordBreak: 'keep-all' } : {}) as object;
+
 /** Style of the main Korean text of an exercise: size by length (koreanSize) in the Korean font. */
 export function koreanHero(text: string) {
-  return { ...koreanSize(text), fontFamily: koreanFont };
+  return { ...koreanSize(text), fontFamily: koreanFont, ...(/\s/.test(text.trim()) ? keepWords : null) };
 }
 
 /** Text style for a family chosen by weight (screens may still say fontWeight: '600'). */
