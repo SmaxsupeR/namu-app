@@ -1,6 +1,7 @@
 // Namu design tokens ("Calm Learning", DESIGN.md). Screens take colors, type and sizes from
 // here only. Color pairs used for text were checked for WCAG AA (4.5:1) in both themes.
-import { useColorScheme } from 'react-native';
+import { Platform, useColorScheme } from 'react-native';
+import { koreanSize } from './koreanSize';
 
 const light = {
   /** Screen background. */
@@ -85,6 +86,17 @@ export const fonts = {
   bold: 'Inter-Bold',
 } as const;
 
+/**
+ * Korean text uses a real Korean font instead of falling back through Inter (which has no
+ * Hangul): with the fallback the weight is lost. Android: sans-serif, i.e. Noto Sans CJK KR;
+ * iOS: Apple SD Gothic Neo; web: Noto Sans KR if installed, then the platform's Korean font.
+ */
+export const koreanFont = Platform.select({
+  android: 'sans-serif',
+  ios: 'Apple SD Gothic Neo',
+  default: "'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR', system-ui, sans-serif",
+});
+
 export type TypeVariant = keyof typeof type;
 
 /** Type scale (sp, scales with the system font size). */
@@ -103,10 +115,25 @@ export const type = {
   /** Button labels. */
   button: { fontSize: 16, lineHeight: 20, fontFamily: fonts.semibold },
   /** A Korean word in a list row. */
-  korean: { fontSize: 20, lineHeight: 28, fontFamily: fonts.semibold },
-  /** The Korean word an exercise asks about. */
-  koreanPrompt: { fontSize: 40, lineHeight: 52, fontFamily: fonts.bold },
+  korean: { fontSize: 20, lineHeight: 28, fontFamily: koreanFont, fontWeight: '600' },
+  /** The Korean word an exercise is about: the main accent of a study screen (long words: koreanHero()). */
+  koreanPrompt: { fontSize: 56, lineHeight: 72, fontFamily: koreanFont, fontWeight: '600' },
+  /** A Korean sentence or phrase in an exercise (examples, sentences to listen to). */
+  koreanSentence: { fontSize: 28, lineHeight: 40, fontFamily: koreanFont, fontWeight: '500' },
+  /** Korean answer options and typed Korean answers. */
+  koreanOption: { fontSize: 26, lineHeight: 36, fontFamily: koreanFont, fontWeight: '500' },
+  /** The translation shown in an exercise. */
+  translation: { fontSize: 26, lineHeight: 34, fontFamily: fonts.semibold },
+  /** Romanization / transcription under a Korean word. */
+  transcription: { fontSize: 15, lineHeight: 20, fontFamily: fonts.regular },
+  /** What to do in an exercise ("Type the translation"). */
+  instruction: { fontSize: 19, lineHeight: 26, fontFamily: fonts.semibold },
 } as const;
+
+/** Style of the main Korean text of an exercise: size by length (koreanSize) in the Korean font. */
+export function koreanHero(text: string) {
+  return { ...koreanSize(text), fontFamily: koreanFont };
+}
 
 /** Text style for a family chosen by weight (screens may still say fontWeight: '600'). */
 export function familyForWeight(weight: string | number | undefined): string {

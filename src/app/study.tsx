@@ -16,7 +16,7 @@ import { ListGroup, ListRow } from '../ui/rows';
 import { useConfirm } from '../ui/sheets';
 import { StudyShell } from '../ui/StudyShell';
 import { useInterval, useT } from '../ui/i18n';
-import { fonts, radius, space, type as typeScale, useTheme } from '../ui/theme';
+import { fonts, koreanHero, radius, size, space, type as typeScale, useTheme } from '../ui/theme';
 
 /** What the learner sees after answering, before tapping "Next". */
 interface Feedback {
@@ -393,23 +393,23 @@ export default function Study() {
   const e = view.entry;
   const reading = e.transcription || e.romanization;
 
+  // Hangul is the main accent of every step: the word large and centred (size by length),
+  // transcription under it, and the listen button below so it never pushes the word aside.
   const korean = (big = true, listen = true) => (
     <View style={styles.centered}>
-      <Row style={styles.wrapRow}>
-        <Text variant={big ? 'koreanPrompt' : undefined} style={[big ? styles.korean : styles.koreanSmall, { color: t.text }]}>
-          {e.korean}
-        </Text>
-        {listen ? <IconBtn name="volume-2" label={tr('listen')} color={t.primary} onPress={() => speak(e.korean)} /> : null}
-      </Row>
-      {settings.showRomanization && reading ? <Text style={[styles.reading, { color: t.textDim }]}>{e.transcription ? reading : `≈ ${reading}`}</Text> : null}
+      <Text style={[big ? koreanHero(e.korean) : typeScale.koreanOption, styles.center, { color: t.text }]} maxFontSizeMultiplier={1.6}>
+        {e.korean}
+      </Text>
+      {settings.showRomanization && reading ? <Text style={[typeScale.transcription, { color: t.textDim }]}>{e.transcription ? reading : `≈ ${reading}`}</Text> : null}
+      {listen ? <AudioButton label={`${tr('listen')}: ${e.korean}`} onPress={() => speak(e.korean)} /> : null}
     </View>
   );
-  const meaning = <Text style={[styles.meaning, { color: t.text }]}>{meaningText(e)}</Text>;
-  const divider = <View style={[styles.divider, { backgroundColor: t.border }]} />;
+  const meaning = <Text style={[typeScale.translation, styles.center]}>{meaningText(e)}</Text>;
+  const divider = <View style={[styles.divider, { backgroundColor: t.divider }]} />;
   const example = e.example ? (
     <View style={styles.centered}>
-      <Text style={[styles.example, { color: t.text }]}>{e.example}</Text>
-      {e.exampleTranslation ? <Body dim>{e.exampleTranslation}</Body> : null}
+      <Text style={[typeScale.koreanSentence, styles.center]}>{e.example}</Text>
+      {e.exampleTranslation ? <Text style={[typeScale.body, styles.center, { color: t.textDim }]}>{e.exampleTranslation}</Text> : null}
     </View>
   ) : null;
 
@@ -428,7 +428,7 @@ export default function Study() {
         </Body>
         <View style={styles.stage}>
           {korean()}
-          {!settings.showRomanization && reading ? <Text style={[styles.reading, { color: t.textDim }]}>{e.transcription ? reading : `≈ ${reading}`}</Text> : null}
+          {!settings.showRomanization && reading ? <Text style={[typeScale.transcription, { color: t.textDim }]}>{e.transcription ? reading : `≈ ${reading}`}</Text> : null}
           {divider}
           {meaning}
           {example}
@@ -454,7 +454,7 @@ export default function Study() {
           accessibilityRole="button"
           accessibilityLabel={tr('listen')}
           style={[styles.playBig, { backgroundColor: t.primarySoft }]}>
-          <Icon name="headphones" size={48} color={t.primary} />
+          <Icon name="headphones" size={40} color={t.primary} />
         </Pressable>
         <Row style={styles.wrapRow}>
           <Btn kind="ghost" small icon="rotate-ccw" title={tr('listenAgain')} onPress={() => speak(e.korean)} />
@@ -500,7 +500,7 @@ export default function Study() {
                 accessibilityLabel={o}
                 android_ripple={{ color: t.surfaceAlt }}
                 style={[styles.option, { borderColor: color, backgroundColor: reveal ? (isRight(o) ? t.primarySoft : t.dangerSoft) : t.surface }]}>
-                <Text style={[side === 'ko_ru' ? styles.optionText : styles.optionKorean, { color: t.text }]}>{o}</Text>
+                <Text style={[side === 'ko_ru' ? styles.optionText : typeScale.koreanOption, styles.flex]}>{o}</Text>
                 {reveal ? <Icon name={isRight(o) ? 'check-circle' : 'x-circle'} color={color} /> : null}
               </Pressable>
             );
@@ -572,7 +572,7 @@ export default function Study() {
               autoCapitalize="none"
               returnKeyType="done"
               submitBehavior="submit"
-              style={[styles.typeInput, { color: t.text, backgroundColor: t.surface, borderColor: t.border }]}
+              style={[styles.typeInput, side === 'ru_ko' ? styles.typeKorean : null, { color: t.text, backgroundColor: t.surface, borderColor: t.border }]}
             />
           ) : (
             <Outcome feedback={feedback} interval={interval} />
@@ -598,6 +598,16 @@ export default function Study() {
       {noticeLine}
       {dialog}
     </StudyShell>
+  );
+}
+
+/** Listen button under the word: a 48 dp circle, labelled for TalkBack. */
+function AudioButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} android_ripple={{ color: t.ripple, borderless: true }} hitSlop={4} style={[styles.audio, { backgroundColor: t.primarySoft }]}>
+      <Icon name="volume-2" size={22} color={t.primary} />
+    </Pressable>
   );
 }
 
@@ -677,31 +687,27 @@ function GradeBtn({ grade, disabled, onPress }: { grade: SelfGrade; disabled: bo
 }
 
 const styles = StyleSheet.create({
-  playBig: { width: 112, height: 112, borderRadius: 56, alignItems: 'center', justifyContent: 'center', marginBottom: space.sm },
+  playBig: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center', marginBottom: space.xs },
+  audio: { width: size.touch, height: size.touch, borderRadius: size.touch / 2, alignItems: 'center', justifyContent: 'center', marginTop: space.xs },
   flex: { flex: 1 },
   center: { textAlign: 'center' },
-  stage: { alignItems: 'center', paddingVertical: space.lg, gap: space.md },
+  stage: { alignItems: 'center', paddingVertical: space.sm, gap: space.md },
   outcome: { borderRadius: radius.lg, padding: space.lg, gap: space.xs },
   shrink: { flexShrink: 1 },
   centered: { alignItems: 'center', gap: 4 },
   wrapRow: { flexWrap: 'wrap', justifyContent: 'center' },
-  korean: { textAlign: 'center', flexShrink: 1 },
-  koreanSmall: { fontSize: 28, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
-  reading: { fontSize: 15 },
-  meaning: { fontSize: 24, fontWeight: '600', textAlign: 'center' },
-  example: { fontSize: 18, textAlign: 'center' },
   divider: { height: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
   badge: { paddingHorizontal: space.md, paddingVertical: 4, borderRadius: radius.pill },
   badgeText: { fontSize: 12, fontWeight: '700' },
   option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm, minHeight: 56, paddingHorizontal: space.lg, paddingVertical: space.md, borderRadius: radius.md, borderWidth: 1.5, overflow: 'hidden' },
-  optionText: { fontSize: 18, fontWeight: '500', flex: 1 },
-  optionKorean: { fontSize: 24, fontWeight: '600', flex: 1 },
-  typeInput: { fontSize: 24, fontFamily: fonts.regular, textAlign: 'center', borderWidth: 1, borderRadius: radius.md, paddingVertical: space.lg, paddingHorizontal: space.md },
+  optionText: { fontSize: 18, lineHeight: 24, fontWeight: '500' },
+  typeKorean: { ...typeScale.koreanOption, fontSize: 28, lineHeight: 38 },
+  typeInput: { fontSize: 22, fontFamily: fonts.regular, textAlign: 'center', borderWidth: 1, borderRadius: radius.md, paddingVertical: space.lg, paddingHorizontal: space.md },
   between: { justifyContent: 'space-between' },
   verdict: { fontSize: 20, fontWeight: '700', flexShrink: 1 },
   given: { fontSize: 16 },
   diffLabel: { fontSize: 12, fontWeight: '600', marginTop: 4 },
-  diffLine: { fontSize: 26 },
+  diffLine: { ...typeScale.koreanOption },
   buttons: { gap: space.sm },
   grade: { flex: 1, minHeight: 56, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, overflow: 'hidden' },
   gradeText: { fontSize: 16, fontWeight: '700' },

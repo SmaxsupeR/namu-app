@@ -11,7 +11,7 @@ import { speakKorean, stopSpeech } from '../services/speech';
 import { useApp } from '../state/store';
 import { Bar, Body, Btn, Card, Empty, IconBtn, Row, Screen } from '../ui/components';
 import { useT } from '../ui/i18n';
-import { space, useTheme } from '../ui/theme';
+import { koreanHero, space, type as typeScale, useTheme } from '../ui/theme';
 import { useLoad } from '../ui/useLoad';
 
 export default function Listen() {
@@ -78,8 +78,10 @@ export default function Listen() {
           <Bar value={words.length ? (i + 1) / words.length : 0} />
           <Body dim>{tr('listenPosition', { n: i + 1, total: words.length })}</Body>
           <Card style={styles.card}>
-            <Text style={[styles.korean, { color: t.text }]}>{w.korean}</Text>
-            <Text style={[styles.meaning, { color: t.textDim }]}>{w.meaning ?? ''}</Text>
+            <Text style={[koreanHero(w.korean), styles.center, { color: t.text }]} maxFontSizeMultiplier={1.6}>
+              {w.korean}
+            </Text>
+            <Text style={[typeScale.translation, styles.center, { color: t.textDim }]}>{w.meaning ?? ''}</Text>
           </Card>
           <Row style={styles.controls}>
             <IconBtn name="skip-back" label={tr('listenPrev')} color={t.primary} size={32} onPress={() => go(i - 1)} />
@@ -95,7 +97,6 @@ export default function Listen() {
 
 const styles = StyleSheet.create({
   card: { alignItems: 'center', paddingVertical: space.xl, gap: space.sm },
-  korean: { fontSize: 40, fontWeight: '700' },
-  meaning: { fontSize: 18, textAlign: 'center' },
+  center: { textAlign: 'center' },
   controls: { justifyContent: 'center', gap: space.xl },
 });

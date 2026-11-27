@@ -17,7 +17,7 @@ import { Body, Btn, EmptyState, Field, Icon, IconBtn, LoadingState, Row, type In
 import { ListGroup, ListRow } from '../ui/rows';
 import { StudyShell } from '../ui/StudyShell';
 import { useInterval, useT } from '../ui/i18n';
-import { radius, space, type as typeScale, useTheme } from '../ui/theme';
+import { koreanHero, radius, space, type as typeScale, useTheme } from '../ui/theme';
 
 type Task = DrillTask & { topic: GrammarTopic };
 
@@ -225,9 +225,11 @@ export default function GrammarDrill() {
       }>
       {hideHeader}
       <View style={styles.centered}>
-        <Text variant="koreanPrompt">{task.base}</Text>
-        <Text style={[typeScale.body, { color: t.textDim }]}>{task.ru}</Text>
-        <Text style={[styles.target, { color: t.primary }]}>+ {task.target}</Text>
+        <Text style={[koreanHero(task.base), styles.center]} maxFontSizeMultiplier={1.6}>
+          {task.base}
+        </Text>
+        <Text style={[typeScale.body, styles.center, { color: t.textDim }]}>{task.ru}</Text>
+        <Text style={[typeScale.koreanOption, styles.center, { color: t.primary }]}>+ {task.target}</Text>
       </View>
       <Field
         ref={input}
@@ -251,7 +253,7 @@ export default function GrammarDrill() {
               <Text style={[styles.h, { color: result ? t.success : t.danger }]} accessibilityLiveRegion="polite">
                 {result ? tr('correct') : tr('grammarWrong')}
               </Text>
-              <Text style={styles.answer}>{task.answer}</Text>
+              <Text style={typeScale.koreanOption}>{task.answer}</Text>
             </View>
             <IconBtn name="volume-2" label={tr('listen')} color={t.primary} onPress={() => speakKorean(task.answer)} />
           </Row>
@@ -265,9 +267,8 @@ export default function GrammarDrill() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   centered: { alignItems: 'center', gap: space.xs },
-  target: { fontSize: 20, fontWeight: '700', marginTop: space.sm },
-  input: { fontSize: 24, textAlign: 'center' },
+  center: { textAlign: 'center' },
+  input: { ...typeScale.koreanOption, fontSize: 28, lineHeight: 38, textAlign: 'center' },
   h: { fontSize: 16, fontWeight: '700' },
-  answer: { fontSize: 22, fontWeight: '600', marginTop: 2 },
   outcome: { borderRadius: radius.lg, padding: space.lg, gap: space.sm },
 });

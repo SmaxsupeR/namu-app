@@ -42,7 +42,7 @@ export function StudyShell({
         {title || badge ? (
           <View style={styles.titleRow}>
             {title ? (
-              <Text variant="section" accessibilityRole="header" style={styles.center}>
+              <Text variant="instruction" accessibilityRole="header" style={styles.center}>
                 {title}
               </Text>
             ) : null}
@@ -59,7 +59,9 @@ export function StudyShell({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.sm, paddingRight: space.lg },
-  body: { flexGrow: 1, justifyContent: 'center', padding: space.lg, gap: space.lg },
+  // The task sits in the upper part of the screen at a steady place for every step, so the
+  // word does not jump when the answer area changes size or the keyboard opens.
+  body: { flexGrow: 1, paddingHorizontal: space.lg, paddingTop: space.xl, paddingBottom: space.lg, gap: space.lg },
   titleRow: { alignItems: 'center', gap: space.xs },
   center: { textAlign: 'center' },
   footer: { paddingHorizontal: space.lg, paddingTop: space.sm, gap: space.sm },
