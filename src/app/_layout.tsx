@@ -82,6 +82,7 @@ export default function RootLayout() {
         <Stack.Screen name="listen" options={{ title: tr('hardListenAll') }} />
         <Stack.Screen name="ink-lab" options={{ title: tr('inkLabTitle') }} />
         <Stack.Screen name="dict-sample" options={{ title: tr('sampleTitle') }} />
+        <Stack.Screen name="reference" options={{ title: tr('tabTranslate') }} />
         <Stack.Screen name="study" options={{ headerShown: false, gestureEnabled: false }} />
       </Stack>
     </SafeAreaProvider>

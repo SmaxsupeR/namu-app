@@ -19,7 +19,7 @@ type Prompt = 'text' | 'audio' | 'dictation';
 const COUNTS = [10, 20, 50];
 
 export default function FreePractice() {
-  const params = useLocalSearchParams<{ source?: string; prompt?: string }>();
+  const params = useLocalSearchParams<{ source?: string; prompt?: string; method?: string }>();
   const t = useTheme();
   const tr = useT();
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function FreePractice() {
   const [picked, setPicked] = useState<string[]>([]);
   const [pickFrom, setPickFrom] = useState<string | null>(null);
   const [dirs, setDirs] = useState<Dirs>('ko_ru');
-  const [method, setMethod] = useState<Method>('keyboard');
+  const [method, setMethod] = useState<Method>(params.method === 'self_grade' || params.method === 'choice' ? params.method : 'keyboard');
   const [limit, setLimit] = useState(20);
   const [countAsReview, setCountAsReview] = useState(false);
   const [prompt, setPrompt] = useState<Prompt>(params.prompt === 'audio' || params.prompt === 'dictation' ? params.prompt : 'text');

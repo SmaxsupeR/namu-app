@@ -1,7 +1,7 @@
 // "Translator" tab: the whole Korean–Russian dictionary, searched in either
 // language or browsed by word type, level, topic and situation.
 import * as Clipboard from 'expo-clipboard';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../../ui/Text';
@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getDictionary } from '../../dict';
 import { browse, countWords, queryKind, search, subjectCounts, type DictFilter, type DictWord } from '../../dict/lookup';
 import { topicName, TOP_TOPICS } from '../../dict/topics';
-import { Body, Btn, Chip, Field, Icon, IconBtn, Row, Title } from '../../ui/components';
+import { Body, Btn, Field, Icon, IconBtn, SegmentedControl, Title } from '../../ui/components';
 import { FilterPanel, FullDictCard, TYPE_LABEL, LEVEL_LABEL, WordRow } from '../../ui/dictUi';
 import { Conjugator, GrammarList } from '../../ui/grammarUi';
 import { useT } from '../../ui/i18n';
@@ -17,7 +17,20 @@ import { radius, space, useTheme } from '../../ui/theme';
 
 const PAGE = 40;
 
+export type ReferenceSection = 'words' | 'grammar' | 'conjugate';
+const SECTIONS: ReferenceSection[] = ['words', 'grammar', 'conjugate'];
+
+/** Legacy tab route (/translate): the same reference with its own title. */
 export default function Translate() {
+  return <ReferenceScreen embedded={false} />;
+}
+
+/**
+ * The reference: the Korean–Russian dictionary, the grammar guide and the conjugation table.
+ * `embedded`: opened from Explore as a stack screen, which shows the title and back button.
+ */
+export function ReferenceScreen({ embedded }: { embedded: boolean }) {
+  const params = useLocalSearchParams<{ section?: string; focus?: string }>();
   const t = useTheme();
   const tr = useT();
   const router = useRouter();
@@ -31,7 +44,7 @@ export default function Translate() {
   const [subjects, setSubjects] = useState<string[]>([]);
   const [error, setError] = useState(false);
   // The tab holds three references: the dictionary, the grammar guide and the conjugation table.
-  const [section, setSection] = useState<'words' | 'grammar' | 'conjugate'>('words');
+  const [section, setSection] = useState<ReferenceSection>(SECTIONS.includes(params.section as ReferenceSection) ? (params.section as ReferenceSection) : 'words');
   const request = useRef(0);
 
   const active = Object.values(filter).filter((v) => v !== undefined).length;
@@ -87,12 +100,16 @@ export default function Translate() {
 
   const header = (
     <View style={styles.header}>
-      <Title>{tr('tabTranslate')}</Title>
-      <Row style={styles.sections}>
-        <Chip label={tr('sectionWords')} active={section === 'words'} onPress={() => setSection('words')} />
-        <Chip label={tr('sectionGrammar')} active={section === 'grammar'} onPress={() => setSection('grammar')} />
-        <Chip label={tr('sectionConjugate')} active={section === 'conjugate'} onPress={() => setSection('conjugate')} />
-      </Row>
+      {embedded ? null : <Title>{tr('tabTranslate')}</Title>}
+      <SegmentedControl
+        value={section}
+        onChange={setSection}
+        options={[
+          { value: 'words', label: tr('sectionWords') },
+          { value: 'grammar', label: tr('sectionGrammar') },
+          { value: 'conjugate', label: tr('sectionConjugate') },
+        ]}
+      />
       {section === 'grammar' ? <GrammarList /> : null}
       {section === 'conjugate' ? <Conjugator /> : null}
       {section === 'words' ? (
@@ -104,6 +121,7 @@ export default function Translate() {
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"
+        autoFocus={params.focus === '1'}
         maxLength={100}
         style={styles.input}
         accessibilityLabel={tr('translatePlaceholder')}
@@ -169,7 +187,7 @@ export default function Translate() {
         keyboardShouldPersistTaps="handled"
         onEndReached={more}
         onEndReachedThreshold={0.5}
-        contentContainerStyle={[styles.list, { paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.xl }]}
+        contentContainerStyle={[styles.list, { paddingTop: (embedded ? 0 : insets.top) + space.lg, paddingBottom: insets.bottom + space.xl }]}
       />
     </View>
   );
@@ -186,5 +204,4 @@ const styles = StyleSheet.create({
   section: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginTop: space.sm },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   topic: { paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.md, borderWidth: 1 },
-  sections: { flexWrap: 'wrap', gap: space.sm },
 });

@@ -5,7 +5,7 @@ import { getDb } from '../db';
 import { exportBackup, parseBackup, restoreBackup, savePreference } from '../db/repo';
 import { pickTextFile, shareTextFile, stamp } from '../services/files';
 import { useApp, type Settings } from '../state/store';
-import { Body, Btn, Card, Chip, IconBtn, Row, Screen, Section } from '../ui/components';
+import { Body, Btn, Card, Chip, IconBtn, Row, Screen, Section, SegmentedControl } from '../ui/components';
 import { useT } from '../ui/i18n';
 import { space, useTheme } from '../ui/theme';
 import { VoiceSettings } from '../ui/VoiceSettings';
@@ -97,6 +97,29 @@ export default function SettingsScreen() {
           ))}
         </View>
         <Body dim>{tr('retentionHint')}</Body>
+      </Card>
+      <Card>
+        <Text style={[styles.label, { color: t.text }]}>{tr('practiceHow')}</Text>
+        <SegmentedControl
+          value={settings.directions}
+          onChange={(v) => update('directions', v)}
+          options={[
+            { value: 'both', label: tr('dirBothShort') },
+            { value: 'ko_ru', label: tr('dirKoRu') },
+            { value: 'ru_ko', label: tr('dirRuKo') },
+          ]}
+        />
+        <Body dim>{tr(settings.directions === 'both' ? 'dirBothHint' : settings.directions === 'ko_ru' ? 'dirKoRuHint' : 'dirRuKoHint')}</Body>
+        <Text style={[styles.label, { color: t.text }]}>{tr('answerMethod')}</Text>
+        <SegmentedControl
+          value={settings.answerMethod}
+          onChange={(v) => update('answerMethod', v)}
+          options={[
+            { value: 'keyboard', label: tr('methodKeyboard') },
+            { value: 'self_grade', label: tr('methodSelf') },
+          ]}
+        />
+        <Body dim>{tr(settings.answerMethod === 'keyboard' ? 'methodKeyboardHint' : 'methodSelfHint')}</Body>
       </Card>
       <Card>
         {toggle(tr('showRomanization'), 'showRomanization', tr('showRomanizationHint'))}

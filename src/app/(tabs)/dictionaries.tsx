@@ -40,7 +40,7 @@ export default function Dictionaries() {
   return (
     <View style={styles.flex}>
       <Screen top>
-        <Title>{tr('tabDictionaries')}</Title>
+        <Title>{tr('tabMyWords')}</Title>
         {data && data.active.length === 0 ? <Empty icon="book" title={tr('noDictionaries')} text={tr('noDictionariesText')} /> : null}
         {data?.active.map(item)}
         {data && data.archived.length > 0 ? (
