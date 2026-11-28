@@ -5,13 +5,14 @@ import { Stack } from 'expo-router/stack';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../ui/Text';
+import { KoreanHero } from '../ui/KoreanHero';
 import { listenGapMs } from '../core/listening';
 import { getDifficultWords } from '../db/repo';
 import { speakKorean, stopSpeech } from '../services/speech';
 import { useApp } from '../state/store';
 import { Bar, Body, Btn, Card, Empty, IconBtn, Row, Screen } from '../ui/components';
 import { useT } from '../ui/i18n';
-import { koreanHero, space, type as typeScale, useTheme } from '../ui/theme';
+import { space, type as typeScale, useTheme } from '../ui/theme';
 import { useLoad } from '../ui/useLoad';
 
 export default function Listen() {
@@ -78,9 +79,7 @@ export default function Listen() {
           <Bar value={words.length ? (i + 1) / words.length : 0} />
           <Body dim>{tr('listenPosition', { n: i + 1, total: words.length })}</Body>
           <Card style={styles.card}>
-            <Text style={[koreanHero(w.korean), styles.center, { color: t.text }]} maxFontSizeMultiplier={1.6}>
-              {w.korean}
-            </Text>
+            <KoreanHero text={w.korean} inset={space.lg} style={{ color: t.text }} />
             <Text style={[typeScale.translation, styles.center, { color: t.textDim }]}>{w.meaning ?? ''}</Text>
           </Card>
           <Row style={styles.controls}>

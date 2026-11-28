@@ -1,7 +1,6 @@
 // Namu design tokens ("Calm Learning", DESIGN.md). Screens take colors, type and sizes from
 // here only. Color pairs used for text were checked for WCAG AA (4.5:1) in both themes.
 import { Platform, useColorScheme } from 'react-native';
-import { koreanSize } from './koreanSize';
 
 const light = {
   /** Screen background. */
@@ -116,7 +115,7 @@ export const type = {
   button: { fontSize: 16, lineHeight: 20, fontFamily: fonts.semibold },
   /** A Korean word in a list row. */
   korean: { fontSize: 20, lineHeight: 28, fontFamily: koreanFont, fontWeight: '600' },
-  /** The Korean word an exercise is about: the main accent of a study screen (long words: koreanHero()). */
+  /** The Korean word an exercise is about: the main accent of a study screen (KoreanHero sizes it by length and width). */
   koreanPrompt: { fontSize: 56, lineHeight: 72, fontFamily: koreanFont, fontWeight: '600' },
   /** A Korean sentence or phrase in an exercise (examples, sentences to listen to). */
   koreanSentence: { fontSize: 28, lineHeight: 40, fontFamily: koreanFont, fontWeight: '500' },
@@ -136,10 +135,6 @@ export const type = {
  */
 export const keepWords = (Platform.OS === 'web' ? { wordBreak: 'keep-all' } : {}) as object;
 
-/** Style of the main Korean text of an exercise: size by length (koreanSize) in the Korean font. */
-export function koreanHero(text: string) {
-  return { ...koreanSize(text), fontFamily: koreanFont, ...(/\s/.test(text.trim()) ? keepWords : null) };
-}
 
 /** Text style for a family chosen by weight (screens may still say fontWeight: '600'). */
 export function familyForWeight(weight: string | number | undefined): string {

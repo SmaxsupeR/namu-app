@@ -23,4 +23,17 @@ describe('size of the main Korean text', () => {
       expect(s.fontSize).toBeLessThanOrEqual(56);
     }
   });
+  it('shrinks a word that would not fit the width so it stays on one line', () => {
+    // 358 dp: a 390 dp screen without the 16 dp insets.
+    expect(koreanSize('학교', 358).fontSize).toBe(56);
+    const long = koreanSize('국제연합안전보장이사회', 358);
+    expect(long.fontSize).toBeLessThan(36);
+    expect(long.fontSize * 11 * 1.04).toBeLessThanOrEqual(358);
+    expect(koreanSize('국제연합안전보장이사회', 328).fontSize).toBeLessThan(long.fontSize);
+    // larger system text: smaller base so that size x scale still fits
+    expect(koreanSize('국제연합안전보장이사회', 358, 1.5).fontSize * 1.5 * 11 * 1.04).toBeLessThanOrEqual(358);
+    // never unreadably small; phrases are not shrunk (they wrap between words)
+    expect(koreanSize('가'.repeat(40), 358).fontSize).toBe(20);
+    expect(koreanSize('비위가 사납다', 100).fontSize).toBe(36);
+  });
 });

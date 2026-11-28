@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../ui/Text';
+import { KoreanHero } from '../ui/KoreanHero';
 import type { DiffPart } from '../core/answer';
 import type { Outcome as AttemptOutcome } from '../core/attempt';
 import { buildChoiceOptions, checkChoice, checkKeyboard, checkSelfGrade, listeningAnswerSide, type PromptMode } from '../core/exercises';
@@ -16,7 +17,7 @@ import { ListGroup, ListRow } from '../ui/rows';
 import { useConfirm } from '../ui/sheets';
 import { StudyShell } from '../ui/StudyShell';
 import { useInterval, useT } from '../ui/i18n';
-import { fonts, keepWords, koreanHero, radius, size, space, type as typeScale, useTheme } from '../ui/theme';
+import { fonts, keepWords, radius, size, space, type as typeScale, useTheme } from '../ui/theme';
 
 /** What the learner sees after answering, before tapping "Next". */
 interface Feedback {
@@ -397,9 +398,13 @@ export default function Study() {
   // transcription under it, and the listen button below so it never pushes the word aside.
   const korean = (big = true, listen = true) => (
     <View style={styles.centered}>
-      <Text style={[big ? koreanHero(e.korean) : typeScale.koreanOption, styles.center, { color: t.text }]} maxFontSizeMultiplier={1.6}>
-        {e.korean}
-      </Text>
+      {big ? (
+        <KoreanHero text={e.korean} style={{ color: t.text }} />
+      ) : (
+        <Text style={[typeScale.koreanOption, styles.center, { color: t.text }]} maxFontSizeMultiplier={1.6}>
+          {e.korean}
+        </Text>
+      )}
       {settings.showRomanization && reading ? <Text style={[typeScale.transcription, { color: t.textDim }]}>{e.transcription ? reading : `≈ ${reading}`}</Text> : null}
       {listen ? <AudioButton label={`${tr('listen')}: ${e.korean}`} onPress={() => speak(e.korean)} /> : null}
     </View>

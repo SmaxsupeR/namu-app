@@ -6,6 +6,7 @@ import { Stack } from 'expo-router/stack';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../ui/Text';
+import { KoreanHero } from '../ui/KoreanHero';
 import { REVIEW_TASKS_PER_TOPIC, REVIEW_TOPICS_PER_SESSION } from '../core/grammarReview';
 import { getDb } from '../db';
 import { dueGrammarTopics, getGrammarCards, recordGrammarDrill, type GrammarCard } from '../db/grammar';
@@ -17,7 +18,7 @@ import { Body, Btn, EmptyState, Field, Icon, IconBtn, LoadingState, Row, type In
 import { ListGroup, ListRow } from '../ui/rows';
 import { StudyShell } from '../ui/StudyShell';
 import { useInterval, useT } from '../ui/i18n';
-import { fonts, koreanHero, radius, space, type as typeScale, useTheme } from '../ui/theme';
+import { fonts, radius, space, type as typeScale, useTheme } from '../ui/theme';
 
 type Task = DrillTask & { topic: GrammarTopic };
 
@@ -225,9 +226,7 @@ export default function GrammarDrill() {
       }>
       {hideHeader}
       <View style={styles.centered}>
-        <Text style={[koreanHero(task.base), styles.center]} maxFontSizeMultiplier={1.6}>
-          {task.base}
-        </Text>
+        <KoreanHero text={task.base} />
         <Text style={[typeScale.body, styles.center, { color: t.textDim }]}>{task.ru}</Text>
         <Text style={[typeScale.koreanOption, styles.center, { color: t.primary }]}>+ {task.target}</Text>
       </View>

@@ -11,7 +11,7 @@ Use semantic tokens for error, warning, success and information; verify WCAG AA 
 Typography: Inter for Latin/Cyrillic (bundled, OFL, subset). Hangul is never rendered through the Inter fallback (its weight is lost there): Korean text uses a Korean font token — Android `sans-serif` (Noto Sans CJK KR), iOS Apple SD Gothic Neo, web Noto Sans KR → Apple SD Gothic Neo → Malgun Gothic. Respect system font scaling (the main Korean word caps at 1.6× so it stays on screen).
 Interface type: screen title 28sp, section 20sp, body 16sp, secondary 14sp, caption 13sp.
 Study type (Hangul is the main accent of every exercise):
-- Main Korean word `koreanPrompt` 56sp / line 72 / weight 600; long words scale by length 56→50→44→40→36sp (`koreanSize`); a phrase or sentence 28–36sp, line ≥1.3× (no clipped Hangul).
+- Main Korean word `koreanPrompt` 56sp / line 72 / weight 600; long words scale by length 56→50→44→40→36sp (`koreanSize`); a single word that still does not fit the screen width (×system font scale) shrinks further, down to 20sp, so it stays on one line (`KoreanHero`); a phrase or sentence 28–36sp, line ≥1.3× (no clipped Hangul).
 - Korean sentence (examples) `koreanSentence` 28sp / 40 / 500.
 - Korean answer options and typed Korean `koreanOption` 26sp / 36 / 500 (input 28sp).
 - Translation `translation` 26sp / 34 / Inter SemiBold; Russian answer options 18sp.
